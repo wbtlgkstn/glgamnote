@@ -205,8 +205,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .field input{width:100%;min-height:52px;border:1.5px solid var(--line);border-radius:14px;padding:0 12px;font-size:1rem;outline:none;background:#120a0b;color:var(--ink);color-scheme:dark}
 .field input:focus{border-color:var(--gold)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
-.type-btn{min-height:80px;border-radius:16px;border:1.5px solid var(--line);background:var(--card2);color:var(--muted);cursor:pointer;font-weight:700;font-size:.88rem;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.type-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+.type-btn{min-height:80px;border-radius:16px;border:1.5px solid var(--line);background:var(--card2);color:var(--muted);cursor:pointer;font-weight:700;font-size:.82rem;white-space:nowrap;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .type-btn b{font-size:1.8rem}
 .type-btn:hover{transform:scale(1.04)}
 .type-btn.on{border-color:var(--tc);background:color-mix(in srgb,var(--tc) 22%,#120a0b);color:#fff;box-shadow:0 0 0 2px color-mix(in srgb,var(--tc) 40%,transparent)}
@@ -267,6 +267,7 @@ button,input,textarea,select{font:inherit;color:inherit}
    --------------------------------------------------------------- */
 const TYPES = {
   musical: { name:'뮤지컬', emoji:'🎶', color:'#ff4d6a', dur:160, titleL:'작품명',  venueL:'공연장' },
+  concert: { name:'콘서트', emoji:'🎤', color:'#ffb547', dur:150, titleL:'공연명',  venueL:'공연장' },
   play:    { name:'연극',   emoji:'🎭', color:'#c08bff', dur:110, titleL:'작품명',  venueL:'공연장' },
   movie:   { name:'영화',   emoji:'🍿', color:'#5aa9ff', dur:130, titleL:'영화 제목', venueL:'영화관' },
   escape:  { name:'방탈출', emoji:'🔐', color:'#3fd69a', dur:80,  titleL:'테마명',  venueL:'매장명' }
@@ -286,6 +287,15 @@ const PHOTOS = {
     { k:'seatview', icon:'💺', label:'내 좌석에서 본 무대', when:'before', sec:'seat', tip:'공연 시작 전에만! 시야 후기의 핵심 사진이에요.' },
     { k:'md',       icon:'🛍️', label:'MD 굿즈·프로그램북', when:'after', sec:'after', tip:'산 게 있으면 책상 위에 모아서 한 컷.' },
     { k:'curtain',  icon:'👏', label:'커튼콜 (촬영 허용 회차만)', when:'after', sec:'after', tip:'안내 방송으로 허용될 때만. 안 되면 건너뛰기!' }
+  ],
+  concert: [
+    { k:'building', icon:'🏟️', label:'공연장 외관·현수막', when:'before', sec:'top',  tip:'공연명 현수막이 보이게. 글 첫 사진으로 좋아요.' },
+    { k:'poster',   icon:'🖼️', label:'공식 포스터·포토월', when:'before', sec:'top',  tip:'포토월 앞 인증샷도 좋아요. 썸네일 후보!' },
+    { k:'ticket',   icon:'🎫', label:'티켓·입장 팔찌', when:'before', sec:'info', tip:'좌석만 보이게, 예매번호·이름·QR은 가리기.' },
+    { k:'md',       icon:'🛍️', label:'MD 굿즈·응원봉', when:'before', sec:'info', tip:'산 굿즈를 모아서 한 컷. 대기 줄 정보도 메모!' },
+    { k:'seatview', icon:'💺', label:'내 좌석에서 본 무대', when:'before', sec:'seat', tip:'공연 시작 전에! 시야 후기의 핵심 사진이에요.' },
+    { k:'stage',    icon:'✨', label:'무대 세트·전광판', when:'before', sec:'seat', tip:'시작 전 무대 전체가 보이게 넓게.' },
+    { k:'encore',   icon:'🎉', label:'앵콜·엔딩 (촬영 허용 시)', when:'after', sec:'after', tip:'촬영이 허용된 공연·구간에서만! 아니면 건너뛰기.' }
   ],
   play: [
     { k:'building', icon:'🏛️', label:'극장 입구·간판', when:'before', sec:'top', tip:'소극장은 입구 분위기가 글 느낌을 살려줘요.' },
@@ -327,6 +337,7 @@ const COMMON_END = [
 ];
 const RATE = {
   musical:[['satisfaction','만족도'],['acting','배우·가창'],['stage','무대·연출'],['story','스토리'],['sound','음향']],
+  concert:[['satisfaction','만족도'],['live','라이브'],['stage','무대·연출'],['sound','음향'],['setlist','셋리스트']],
   play:   [['satisfaction','만족도'],['acting','연기'],['stage','연출'],['story','스토리']],
   movie:  [['satisfaction','만족도'],['story','스토리'],['stage','연출'],['acting','연기'],['av','영상·음향']],
   escape: [['satisfaction','만족도'],['direction','연출'],['story','스토리'],['interior','인테리어'],['puzzle','문제 구성'],['difficulty','난이도'],['fear','공포도'],['activity','활동성']]
@@ -342,6 +353,19 @@ const QUESTIONS = {
     { id:'review', kind:'text', ask:'전체적으로 어땠어요?\n생각나는 대로 막 말해 주세요 ㅎㅎ', ph:'말투 그대로 살려서 글에 넣어 드려요' },
     { id:'ratings', kind:'ratings', ask:'별점 매겨 볼까요? ⭐ (5점 만점)' },
     { id:'rewatch', kind:'choice', ask:'재관람 의사는?', options:['무조건 재관람!','다른 캐스트로 또 볼래요','한 번이면 충분','아직 모르겠어요'] },
+    ...COMMON_END
+  ],
+  concert: [
+    { id:'seat',  kind:'text', optional:true, ask:'오늘 좌석은 어디였어요?', ph:'예: 스탠딩 B구역 / 2층 15구역 3열' },
+    { id:'view',  kind:'choice', ask:'좌석 시야는 어땠어요?', options:['완벽 시야 👍','괜찮았어요','살짝 아쉬움','많이 가렸어요'] },
+    { id:'viewMemo', kind:'text', optional:true, ask:'시야 얘기 한 마디 더? (전광판, 돌출 무대 등)', ph:'예: 돌출 무대 바로 앞이라 눈앞에서 봄ㅋㅋ' },
+    { id:'cast',  kind:'text', optional:true, ask:'출연 아티스트·게스트는 누구였어요?', ph:'예: 아티스트 이름, 깜짝 게스트' },
+    { id:'bestSong',  kind:'text', optional:true, ask:'최고의 무대(곡 제목)는?\n가사는 빼고 제목만!', ph:'예: 곡 제목 + 좋았던 이유' },
+    { id:'bestScene', kind:'text', optional:true, ask:'잊지 못할 순간이 있었나요?\n(떼창, 멘트, 이벤트 등)', ph:'예: 마지막 곡 떼창에서 울컥함ㅠ' },
+    { id:'review', kind:'text', ask:'전체적으로 어땠어요?\n생각나는 대로 막 말해 주세요 ㅎㅎ', ph:'말투 그대로 살려서 글에 넣어 드려요' },
+    { id:'tipInfo', kind:'text', optional:true, ask:'다음에 갈 사람을 위한 꿀팁은?\n(MD 줄, 입장, 교통 등)', ph:'예: MD는 전날 가야 안 기다림' },
+    { id:'ratings', kind:'ratings', ask:'별점 매겨 볼까요? ⭐ (5점 만점)' },
+    { id:'rewatch', kind:'choice', ask:'다음 공연도 갈 거예요?', options:['다음 투어 무조건!','막콘도 가고 싶어요','한 번이면 충분','아직 모르겠어요'] },
     ...COMMON_END
   ],
   play: [
@@ -471,7 +495,8 @@ const END_RULES = [
   [/(했|였|었|았|겠|있|없|싶|밌)(음|다|어)$/, '$1어요'],
   [/(좋|같|많|높|낮|괜찮)(음|다|아)$/, '$1아요'],
   [/한다$/, '해요'], [/된다$/, '돼요'],
-  [/됨$/, '돼요'], [/함$/, '해요'], [/짐$/, '져요'], [/봄$/, '봐요'], [/줌$/, '줘요'], [/옴$/, '와요'], [/감$/, '가요']
+  // 후기 메모의 '~함/~됨'은 대부분 지난 일 → 과거형으로 (울컥함 → 울컥했어요)
+  [/됨$/, '됐어요'], [/함$/, '했어요'], [/짐$/, '졌어요'], [/봄$/, '봤어요'], [/줌$/, '줬어요'], [/옴$/, '왔어요'], [/감$/, '갔어요']
 ];
 function softenEnding(core){
   if (/(요|니다|죠|네요|까)$/.test(core)) return core;              // 이미 존댓말
@@ -604,8 +629,8 @@ function buildPost(ev, photos){
     tags = [store, store + region, ev.title, store + ev.title, (region || store) + '방탈출', ev.title + '후기', '방탈출후기', '방탈출추천',
       (R.fear ?? 0) >= 3 ? '공포방탈출' : '추리방탈출', A.players === '2인' ? '2인방탈출' : '', (R.story ?? 0) >= 4 ? '스토리방탈출' : '', '방탈출'];
   } else {
-    /* ===== 뮤지컬 · 연극 · 영화 ===== */
-    const isMovie = ev.type === 'movie';
+    /* ===== 뮤지컬 · 연극 · 영화 · 콘서트 ===== */
+    const isMovie = ev.type === 'movie', isConcert = ev.type === 'concert';
     const intro2 = isMovie
       ? pick(['스포 없이 솔직한 후기 남겨보겠습니다!', '기억이 생생할 때 바로 정리해 봤어요!'])
       : pick(['좌석 시야부터 솔직한 후기까지 남겨보겠습니다!', '기억이 생생할 때 바로 정리해 봤어요!', '보고 온 날 바로 써보는 솔직 후기입니다!']);
@@ -615,7 +640,7 @@ function buildPost(ev, photos){
     push(`▶ 일시: ${fmtDate(ev.date)} ${ev.time}`, `▶ ${T.venueL}: ${ev.venue}${ev.region ? ` (${ev.region})` : ''}`);
     if (isMovie && A.format) push(`▶ 상영관: ${A.format}`);
     if (A.seat) push(`▶ 좌석: ${A.seat}`);
-    if (A.cast) push(`▶ 캐스트: ${castNames.join(', ')}`);
+    if (A.cast) push(`▶ ${isConcert ? '출연' : '캐스트'}: ${castNames.join(', ')}`);
     photoLines('info');
     if (!isMovie && (A.view || A.viewMemo || photos.some(p => p.key === 'seatview'))){
       section('좌석 시야'); photoLines('seat');
@@ -623,20 +648,25 @@ function buildPost(ev, photos){
       if (A.viewMemo) push(...polishPara(A.viewMemo));
     } else if (isMovie) { photoLines('seat'); }
     ratingLines();
-    section(isMovie ? '스포 없는 관람 후기' : '관람 후기');
+    section(isMovie ? '스포 없는 관람 후기' : isConcert ? '공연 후기' : '관람 후기');
+    if (isConcert) voice(A.bestSong, '최고의 무대', ['오늘 최고의 무대는요 👍', '셋리스트 중에 하나만 꼽자면', '이 무대는 꼭 얘기하고 싶어요']);
     voice(A.bestActor, '기억에 남는 배우', ['오늘 제일 기억에 남는 배우는요', '배우 얘기부터 해볼게요 ㅎㅎ', '먼저 배우 이야기!']);
     if (ev.type === 'musical') voice(A.bestNumber, '최애 넘버', ['가장 좋았던 넘버는요 👍', '넘버 얘기도 빼놓을 수 없죠', '최애 넘버 하나 꼽자면']);
     else voice(A.bestScene, '기억에 남는 장면', ['가장 기억에 남는 장면은요', '명장면 하나 꼽자면', '이 장면은 꼭 얘기하고 싶어요']);
     blank(); push(...polishPara(A.review));
     photoLines('after');
+    if (isConcert && A.tipInfo){ section('관람 꿀팁'); push(...polishPara(A.tipInfo)); }
     if (isMovie && A.cookie){ section('쿠키 영상'); push(`▶ ${A.cookie}`); }
-    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : '재관람 의사'); push(`▶ ${A.rewatch}`); }
+    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : '재관람 의사'); push(`▶ ${A.rewatch}`); }
     recLines(); ending();
     const md = ev.date.slice(5).replace('-', '.');
     title = isMovie
       ? `[영화] '${ev.title}' 후기 ${A.format && A.format !== '일반관' ? A.format : ''} ${String(A.cookie || '').startsWith('쿠키 있음') ? '쿠키' : ''}`
       : `[${T.name}] '${ev.title}' 후기 ${md} ${castNames.slice(0, 2).join(' ')} ${A.seat || A.view ? '좌석시야' : ''}`;
-    tags = isMovie
+    if (isConcert){
+      title = `[콘서트] '${ev.title}' 후기 ${md} ${ev.venue} ${A.seat || A.view ? '좌석시야' : ''}`;
+      tags = ['콘서트' + ev.title, ev.title, ev.title + '후기', ev.title + '셋리스트', ev.venue, ev.venue + '시야', ev.venue + '좌석', ...castNames.slice(0, 3), '콘서트후기', '콘서트시야', '공연후기', '문화생활'];
+    } else tags = isMovie
       ? ['영화' + ev.title, ev.title, ev.title + '후기', ev.title + '쿠키', A.format && A.format !== '일반관' ? A.format : '', ev.venue, '영화후기', '영화추천', '영화리뷰', '문화생활']
       : [T.name + ev.title, ev.title, ev.title + '후기', ev.title + '캐스팅', ev.venue, ev.venue + '시야', T.name + '후기', T.name + '추천', ...castNames.slice(0, 3), '공연후기', '문화생활'];
   }
@@ -1127,7 +1157,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.20-1';
+const APP_VERSION = '2026.10.20-2';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
