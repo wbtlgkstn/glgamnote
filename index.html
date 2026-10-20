@@ -733,7 +733,7 @@ function evCard(ev){
       <span class="pill p-${ph}">${PHASE[ph]}</span>
       <h3>${esc(ev.title)}</h3>
       <div class="meta">${esc(ev.venue)} · ${fmtDate(ev.date)} ${ev.time}</div>
-      <div class="prog"><span id="pc-${ev.id}">📸 …</span><span>💬 ${Object.keys(ev.answers || {}).length ? '답변 있음' : '후기 전'}</span></div>
+      <div class="prog"><span id="pc-${ev.id}">📸 …</span><span>💬 ${Object.keys(ev.answers || {}).length ? '답변 있음' : '후기 전'}</span>${ph === 'upcoming' || ph === 'photo' ? `<span style="color:${ev.calAdded ? 'var(--ok)' : 'var(--orange)'}">${ev.calAdded ? '📅 알림 등록됨' : '📅 알림 미등록'}</span>` : ''}</div>
     </div><div class="muted">›</div></div>`;
 }
 
@@ -769,16 +769,20 @@ function saveForm(id){
   const v = { type: formType, title: $('#fTitle').value.trim(), venue: $('#fVenue').value.trim(), region: $('#fRegion').value.trim(),
               date: $('#fDate').value, time: $('#fTime').value, duration: Number($('#fDur').value) || TYPES[formType].dur };
   if (!v.title || !v.venue || !v.date || !v.time){ toast('제목·장소·날짜·시간은 꼭 적어 주세요!'); $('#sheetIn').classList.add('shake'); setTimeout(() => $('#sheetIn').classList.remove('shake'), 400); return; }
-  let ev = id ? getEv(id) : null;
+  let ev = id ? getEv(id) : null, needCal = true;
   if (ev){
     const timeChanged = ev.date !== v.date || ev.time !== v.time || ev.duration !== v.duration;
-    Object.assign(ev, v); if (timeChanged) ev.notified = {};             // 시간 바뀌면 알림 다시
+    Object.assign(ev, v); if (timeChanged){ ev.notified = {}; ev.calAdded = false; }   // 시간 바뀌면 알림 다시
+    needCal = timeChanged || !ev.calAdded;
   } else {
     ev = { id: uid(), ...v, answers:{}, seed: Math.floor(Math.random() * 1e9), notified:{}, reviewDone:false, created: Date.now() };
     events.push(ev);
   }
-  saveEvents(); closeSheet(); toast('일정 저장 완료! 📅');
+  saveEvents(); closeSheet();
   go(`#/e/${ev.id}`); checkAlarms();
+  // 앱이 꺼져 있어도 알림이 오도록 → 저장하자마자 캘린더 등록 안내 (지난 일정은 제외)
+  if (needCal && startMs(ev) > Date.now()) setTimeout(() => openCalSheet(ev.id, true), 350);
+  else toast('일정 저장 완료! 📅');
 }
 function addDemo(){
   const d = new Date(Date.now() + 50 * 60000);   // 50분 뒤 시작 → 바로 '사진 타임' 알림 체험
@@ -812,7 +816,7 @@ async function renderDetail(id, tab){
       <h2>${esc(ev.title)}</h2>
       <div class="muted small">${T.name} · ${esc(ev.venue)}${ev.region ? ' (' + esc(ev.region) + ')' : ''}<br>${fmtDate(ev.date)} ${ev.time} · ${ev.duration}분</div>
       <div class="row-btns">
-        <button class="btn btn-sub btn-sm" onclick="openCalSheet('${id}')">📅 캘린더 등록</button>
+        <button class="btn ${ev.calAdded ? 'btn-sub' : 'btn-gold'} btn-sm" onclick="openCalSheet('${id}')">${ev.calAdded ? '✅ 알림 등록됨' : '📅 알림 등록'}</button>
         <button class="btn btn-ghost btn-sm" onclick="openForm('${id}')">✏️ 수정</button>
         <button class="btn btn-ghost btn-sm icon-only" onclick="deleteEvent('${id}')" aria-label="삭제">🗑</button>
       </div>
@@ -1055,7 +1059,7 @@ function openNotiSheet(){
     <p class="muted small">상태: <b>${{ granted:'켜짐 ✅', denied:'차단됨 (브라우저 설정에서 허용 필요)', default:'아직 안 켬', unsupported:'지원 안 함' }[perm]}</b></p>
     <ul class="alarm-list">
       <li>📱 <b>앱 화면이 열려 있을 때</b>: 시작 1시간 전 · 끝난 직후에 알림 + 진동</li>
-      <li>📅 <b>앱을 닫아도 확실하게</b>: 일정 화면의 <b>‘캘린더 등록’</b>을 누르면 폰 캘린더가 1시간 전·종료 후에 알려줘요</li>
+      <li>📅 <b>앱을 닫아도 확실하게</b>: 일정을 저장할 때 뜨는 <b>‘아이폰 캘린더에 추가’</b>를 누르면 폰 캘린더가 1시간 전·종료 후에 알려줘요</li>
     </ul>
     <div class="row-btns"><button class="btn btn-main" onclick="askNoti()">알림 켜기</button>
     <button class="btn btn-sub" onclick="testAlarm()">알림 테스트</button></div>`);
@@ -1098,34 +1102,53 @@ function beep(){
   }catch(e){}
 }
 /* 캘린더 등록: .ics 파일(1시간 전 + 종료 5분 후 알림 포함) 또는 구글 캘린더 */
-function openCalSheet(id){
-  openSheet(`<h3>📅 폰 캘린더에 알림 등록</h3>
-    <p class="muted small">앱을 닫아도 폰이 <b>시작 1시간 전</b>과 <b>끝난 직후</b>에 알려줘요.</p>
-    <button class="btn btn-main btn-big" onclick="downloadICS('${id}')">📱 캘린더 파일 받기 (아이폰·안드로이드)</button>
-    <div style="height:8px"></div>
-    <button class="btn btn-sub btn-big" onclick="openGCal('${id}')">🗓 구글 캘린더에 추가</button>
-    <p class="muted small">※ 구글 캘린더는 기본 알림 시간이 적용돼요. 1시간 전으로 바꿔 주세요.</p>`);
+function openCalSheet(id, justSaved){
+  const ev = getEv(id);
+  openSheet(`<div class="alarm-hero">📅</div>
+    <h3 style="text-align:center">${justSaved ? '일정 저장 완료! 이제 알림 등록' : '폰 캘린더에 알림 등록'}</h3>
+    <p class="muted" style="text-align:center;margin-top:-4px">앱을 꺼 둬도 아이폰 캘린더가 대신 알려줘요</p>
+    <ul class="alarm-list">
+      <li>📸 <b>시작 1시간 전</b> — 사진 찍을 시간</li>
+      <li>💬 <b>끝나고 5분 뒤</b> — 후기 남길 시간</li>
+    </ul>
+    <button class="btn btn-gold btn-big" onclick="downloadICS('${id}')">📱 아이폰 캘린더에 추가</button>
+    <p class="muted small" style="text-align:center;margin:8px 0 12px">누른 뒤 뜨는 화면에서 <b>‘추가’</b> 또는 <b>‘모두 추가’</b>를 눌러 주세요</p>
+    <div class="row-btns" style="margin-top:0">
+      <button class="btn btn-sub btn-sm" onclick="openGCal('${id}')">🗓 구글 캘린더</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeSheet()">${justSaved ? '나중에' : '닫기'}</button>
+    </div>
+    ${ev.calAdded ? '<p class="muted small" style="text-align:center">이미 등록했다면 또 누르지 않아도 돼요 (중복 등록 주의)</p>' : ''}`);
 }
 const icsTime = ms => { const d = new Date(ms); return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`; };
 const icsEsc = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 function downloadICS(id){
   const ev = getEv(id), T = TYPES[ev.type];
-  const desc = '📸 찍을 사진\n' + PHOTOS[ev.type].map(p => `- ${p.label}`).join('\n') + '\n\n끝나면 글감노트에서 후기 인터뷰!';
+  const appUrl = /^https?:/.test(location.protocol) ? location.origin + location.pathname + `#/e/${ev.id}` : '';
+  const desc = '📸 찍을 사진\n' + PHOTOS[ev.type].map(p => `- ${p.label}`).join('\n') + '\n\n끝나면 글감노트에서 후기 인터뷰!' + (appUrl ? '\n\n▶ 글감노트 열기: ' + appUrl : '');
   const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//glgamnote//KO','CALSCALE:GREGORIAN','BEGIN:VEVENT',
     `UID:${ev.id}@glgamnote`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
     `DTSTART:${icsTime(startMs(ev))}`, `DTEND:${icsTime(endMs(ev))}`,
-    `SUMMARY:${icsEsc(`${T.emoji} [${T.name}] ${ev.title}`)}`, `LOCATION:${icsEsc(ev.venue)}`, `DESCRIPTION:${icsEsc(desc)}`,
+    `SUMMARY:${icsEsc(`${T.emoji} [${T.name}] ${ev.title}`)}`, `LOCATION:${icsEsc(ev.venue)}`, `DESCRIPTION:${icsEsc(desc)}`, ...(appUrl ? [`URL:${appUrl}`] : []),
     'BEGIN:VALARM','ACTION:DISPLAY','TRIGGER:-PT60M', `DESCRIPTION:${icsEsc('📸 1시간 전! 블로그용 사진 찍을 시간')}`,'END:VALARM',
     'BEGIN:VALARM','ACTION:DISPLAY','TRIGGER;RELATED=END:PT5M', `DESCRIPTION:${icsEsc('💬 끝났나요? 글감노트에서 후기 남기기')}`,'END:VALARM',
     'END:VEVENT','END:VCALENDAR'].join('\r\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar' }));
-  a.download = `${ev.title}.ics`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-  closeSheet(); toast('파일을 열어 캘린더에 추가하세요 📅');
+  ev.calAdded = true; saveEvents();
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS){
+    // 아이폰: 캘린더 파일을 바로 열면 '캘린더에 추가' 화면이 뜸 (파일 저장 과정 없음)
+    location.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar;charset=utf-8' }));
+  } else {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar' }));
+    a.download = `${ev.title}.ics`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    toast('파일을 열어 캘린더에 추가하세요 📅');
+  }
+  closeSheet(); if (state.cur === id) setTimeout(() => renderDetail(id, state.tab), 300);
 }
 function openGCal(id){
   const ev = getEv(id), T = TYPES[ev.type];
   const q = new URLSearchParams({ action:'TEMPLATE', text:`${T.emoji} [${T.name}] ${ev.title}`, dates:`${icsTime(startMs(ev))}/${icsTime(endMs(ev))}`,
     details:'📸 시작 1시간 전 사진 찍기 / 끝나면 글감노트에서 후기', location: ev.venue, ctz: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  ev.calAdded = true; saveEvents();
   window.open('https://calendar.google.com/calendar/render?' + q.toString(), '_blank'); closeSheet();
 }
 
@@ -1157,7 +1180,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.20-2';
+const APP_VERSION = '2026.10.20-3';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
