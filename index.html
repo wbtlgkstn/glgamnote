@@ -155,7 +155,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .me.skip{background:#3a2a2c;color:var(--muted)}
 .me .edit{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:rgba(0,0,0,.3);color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer}
 .bubble.new{animation:rise .35s ease-out}
-.composer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(14,8,9,.96);backdrop-filter:blur(8px);
+.composer{position:fixed;left:0;right:0;bottom:0;z-index:30;max-height:70vh;overflow:auto;background:rgba(14,8,9,.96);backdrop-filter:blur(8px);
   border-top:2px solid var(--velvet);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
 .composer-in{max-width:760px;margin:0 auto}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -174,7 +174,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 .rate-row span:first-child{font-weight:700;font-size:.92rem}
 .rate-row input{width:100%;accent-color:var(--velvet-hi);height:30px}
 .stars{color:var(--gold);font-size:.95rem;white-space:nowrap;text-align:right}
-.qcount{font-size:.8rem;color:var(--gold);margin-bottom:8px;font-weight:700}
+.qcount{font-size:.8rem;color:var(--gold);margin-bottom:4px;font-weight:700}
+.cur-q{font-size:1.02rem;font-weight:700;line-height:1.45;margin-bottom:10px;white-space:pre-wrap;word-break:keep-all;max-height:5.8em;overflow:auto}
 .shake{animation:shake .35s}
 
 /* ---------- 블로그 미리보기 (실제 블로그처럼 흰 종이로 표시) ---------- */
@@ -683,7 +684,7 @@ function go(h){ if (location.hash === h) route(); else location.hash = h; }
 window.addEventListener('hashchange', route);
 function route(){
   const m = location.hash.match(/^#\/e\/([^/]+)(?:\/(\w+))?/);
-  $('#dock').innerHTML = '';
+  $('#dock').innerHTML = ''; fitDock();
   if (m){ state.cur = m[1]; renderDetail(m[1], m[2]); } else { state.cur = null; renderHome(); }
   window.scrollTo(0, 0);
 }
@@ -908,13 +909,30 @@ function renderReviewTab(ev, animate){
   html += '</div>';
   $('#tabBody').innerHTML = html;
   // 하단 입력창 (현재 질문에 맞는 입력 도구)
+  // 지금 질문을 입력창 바로 위에 한 번 더 보여줌 → 스크롤 없이 질문 확인 가능
   $('#dock').innerHTML = current ? `<div class="composer"><div class="composer-in">
-      <div class="qcount">질문 ${idx + 1} / ${qs.length}</div>${inputHTML(current, undefined, ev)}</div></div>` : '';
+      <div class="qcount">질문 ${idx + 1} / ${qs.length}</div>
+      <div class="cur-q">${esc(current.ask)}</div>${inputHTML(current, undefined, ev)}</div></div>` : '';
+  fitDock();
   if (animate){
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 30);
     const t = $('#dock #ansText'); if (t && current.kind === 'text') setTimeout(() => t.focus({ preventScroll:true }), 250);
   }
 }
+/* 하단 고정 입력창 높이만큼 본문 아래 여백을 늘려서 채팅이 입력창에 가려지지 않게 함
+   + 아이폰 키보드가 올라오면 입력창도 키보드 위로 같이 올라가게 함 */
+function fitDock(){
+  const bar = document.querySelector('#dock .composer, #dock .actionbar');
+  const vv = window.visualViewport;
+  if (bar && vv){ const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop); bar.style.bottom = kb + 'px'; }
+  const h = bar ? bar.offsetHeight + (parseFloat(bar.style.bottom) || 0) : 0;
+  $('#app').style.paddingBottom = bar ? (h + 20) + 'px' : '';
+}
+if (window.visualViewport){
+  const onVV = () => { const wasBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40; fitDock(); if (wasBottom || document.activeElement?.id === 'ansText') window.scrollTo(0, document.body.scrollHeight); };
+  visualViewport.addEventListener('resize', onVV); visualViewport.addEventListener('scroll', onVV);
+}
+window.addEventListener('resize', fitDock);
 /* 질문 종류별 입력 도구 HTML (채팅 하단 / 수정 시트 공용) */
 function inputHTML(q, val, ev){
   const skip = q.optional ? `<button class="skipbtn" onclick="answer('${q.id}',null,true)">건너뛰기 →</button>` : '';
@@ -994,6 +1012,7 @@ async function renderBlogTab(ev){
     <button class="btn btn-main" onclick="copyBody()"><span>📄</span>본문</button>
     <button class="btn btn-sub" onclick="copyTags()"><span>#️⃣</span>태그</button>
     <button class="btn btn-sub" onclick="savePhotos()"><span>🖼️</span>사진 저장</button></div></div>`;
+  fitDock();
 }
 function reshuffle(){ const ev = curEv(); ev.seed = Math.floor(Math.random() * 1e9); saveEvents(); renderBlogTab(ev); toast('연결 문장을 바꿨어요 🔀'); }
 
@@ -1180,7 +1199,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.20-3';
+const APP_VERSION = '2026.10.21-1';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
