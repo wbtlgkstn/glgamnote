@@ -137,7 +137,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .pc-icon{font-size:1.8rem}
 .pc-head b{display:block;font-size:1.03rem}
 .when{font-size:.74rem;font-weight:700;padding:2px 8px;border-radius:99px}
-.when.before{background:var(--gold-soft);color:var(--gold)} .when.after{background:rgba(216,36,58,.2);color:#ff8a98}
+.when.before{background:var(--gold-soft);color:var(--gold)} .when.after{background:rgba(216,36,58,.2);color:#ff8a98} .when.during{background:rgba(90,169,255,.16);color:#8ec5ff}
 .check{margin-left:auto;width:34px;height:34px;border-radius:50%;background:var(--ok);color:#06130c;display:grid;place-items:center;font-weight:900;animation:pop .4s}
 .tip{font-size:.88rem;color:var(--muted);margin:8px 0}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
@@ -207,7 +207,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .field input{width:100%;min-height:52px;border:1.5px solid var(--line);border-radius:14px;padding:0 12px;font-size:1rem;outline:none;background:#120a0b;color:var(--ink);color-scheme:dark}
 .field input:focus{border-color:var(--gold)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.type-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
 .type-btn{min-height:80px;border-radius:16px;border:1.5px solid var(--line);background:var(--card2);color:var(--muted);cursor:pointer;font-weight:700;font-size:.82rem;white-space:nowrap;transition:all .12s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .type-btn b{font-size:1.8rem}
 .type-btn:hover{transform:scale(1.04)}
@@ -272,6 +272,7 @@ const TYPES = {
   concert: { name:'콘서트', emoji:'🎤', color:'#ffb547', dur:150, titleL:'공연명',  venueL:'공연장' },
   play:    { name:'연극',   emoji:'🎭', color:'#c08bff', dur:110, titleL:'작품명',  venueL:'공연장' },
   movie:   { name:'영화',   emoji:'🍿', color:'#5aa9ff', dur:130, titleL:'영화 제목', venueL:'영화관' },
+  exhibit: { name:'전시',   emoji:'🖼️', color:'#e8d27a', dur:90,  titleL:'전시명',  venueL:'전시장' },
   escape:  { name:'방탈출', emoji:'🔐', color:'#3fd69a', dur:80,  titleL:'테마명',  venueL:'매장명' }
 };
 
@@ -315,6 +316,16 @@ const PHOTOS = {
     { k:'seatview', icon:'💺', label:'좌석에서 본 스크린', when:'before', sec:'seat', tip:'상영 시작 전 광고 나올 때 한 장.' },
     { k:'goods',    icon:'🎁', label:'특전·굿즈 (오리지널 티켓 등)', when:'after', sec:'after', tip:'받은 특전이 있으면 꼭!' }
   ],
+  exhibit: [
+    { k:'building',  icon:'🏛️', label:'전시장 외관·입구', when:'before', sec:'top',  tip:'전시명 현수막이나 입구 사인이 보이게. 글 첫 사진!' },
+    { k:'poster',    icon:'🖼️', label:'전시 포스터·메인 배너', when:'before', sec:'top', tip:'정면에서 반듯하게. 썸네일 후보!' },
+    { k:'ticket',    icon:'🎫', label:'티켓·입장권·팸플릿', when:'before', sec:'info', tip:'날짜·가격이 보이면 정보용으로 좋아요.' },
+    { k:'intro',     icon:'📜', label:'전시 소개·인사말 패널', when:'during', sec:'info', tip:'전시 주제를 설명할 때 쓰기 좋아요.' },
+    { k:'space',     icon:'🚶', label:'전시 공간·동선 전경', when:'during', sec:'info', tip:'사람이 적을 때 넓게 한 장. 분위기 전달용!' },
+    { k:'artwork',   icon:'🎨', label:'인상 깊은 작품', when:'during', sec:'after', tip:'⚠️ 촬영 허용 구역에서만, 플래시는 끄고! 작품 설명판도 같이.' },
+    { k:'photozone', icon:'🤳', label:'포토존 인증샷', when:'during', sec:'after', tip:'포토존이 있으면 꼭! 블로그 반응이 제일 좋은 사진이에요.' },
+    { k:'goods',     icon:'🛍️', label:'굿즈샵·엽서', when:'after', sec:'after', tip:'산 굿즈를 모아서 한 컷. 가격표도 있으면 굿.' }
+  ],
   escape: [
     { k:'storefront', icon:'🏪', label:'매장 외관·간판', when:'before', sec:'top', tip:'매장 이름이 보이게. 위치 안내에도 쓸 수 있어요.' },
     { k:'themeposter',icon:'🖼️', label:'테마 포스터·소개판', when:'before', sec:'top', tip:'대기실 포스터나 소개 화면. 글 대표 사진!' },
@@ -342,6 +353,7 @@ const RATE = {
   concert:[['satisfaction','만족도'],['live','라이브'],['stage','무대·연출'],['sound','음향'],['setlist','셋리스트']],
   play:   [['satisfaction','만족도'],['acting','연기'],['stage','연출'],['story','스토리']],
   movie:  [['satisfaction','만족도'],['story','스토리'],['stage','연출'],['acting','연기'],['av','영상·음향']],
+  exhibit:[['satisfaction','만족도'],['works','작품'],['curation','구성·동선'],['space','공간·연출'],['value','가성비']],
   escape: [['satisfaction','만족도'],['direction','연출'],['story','스토리'],['interior','인테리어'],['puzzle','문제 구성'],['difficulty','난이도'],['fear','공포도'],['activity','활동성']]
 };
 const QUESTIONS = {
@@ -392,6 +404,19 @@ const QUESTIONS = {
     { id:'rewatch', kind:'choice', ask:'N차 관람 의사는?', options:['N차 관람 각!','OTT로 다시 볼래요','한 번이면 충분'] },
     ...COMMON_END
   ],
+  exhibit: [
+    { id:'companion', kind:'choice', ask:'누구랑 다녀왔어요?', options:['혼자','친구와','연인과','가족과','아이와'] },
+    { id:'stay', kind:'choice', ask:'관람 시간은 얼마나 걸렸어요?', options:['30분 이내','1시간 정도','1시간 반','2시간 이상'] },
+    { id:'crowd', kind:'choice', ask:'사람은 많았어요?', options:['한산했어요','적당했어요','붐볐어요','줄 서서 봤어요'] },
+    { id:'photoRule', kind:'choice', ask:'사진 촬영은 가능했어요?', options:['전체 촬영 가능','일부 구역만 가능','촬영 불가'] },
+    { id:'bestWork', kind:'text', optional:true, ask:'가장 인상 깊은 작품과 이유는요?', ph:'예: 마지막 방 미디어아트, 빛이 쏟아지는 느낌' },
+    { id:'docent', kind:'choice', optional:true, ask:'도슨트나 오디오 가이드는요?', options:['도슨트 들었어요','오디오 가이드 썼어요','안 썼어요'] },
+    { id:'review', kind:'text', ask:'전체적으로 어땠어요?\n생각나는 대로 막 말해 주세요 ㅎㅎ', ph:'말투 그대로 살려서 글에 넣어 드려요' },
+    { id:'tipInfo', kind:'text', optional:true, ask:'다음에 갈 사람을 위한 꿀팁은?\n(할인, 주차, 한산한 시간 등)', ph:'예: 평일 오전이 제일 한산함' },
+    { id:'ratings', kind:'ratings', ask:'별점 매겨 볼까요? ⭐ (5점 만점)' },
+    { id:'rewatch', kind:'choice', ask:'또 가고 싶어요?', options:['또 가고 싶어요!','한 번이면 충분','지인에게 추천할래요'] },
+    ...COMMON_END
+  ],
   escape: [
     { id:'players', kind:'choice', ask:'몇 명이서 했어요?', options:['2인','3인','4인','5인+','혼방'] },
     { id:'career',  kind:'text', optional:true, ask:'방탈출 경력도 적어 둘까요?', ph:'예: 200방 이상 · 50방 이상' },
@@ -418,7 +443,7 @@ const STICKERS = {
   '탈출 성공':'escape_ok', '탈출 실패':'escape_fail', '힌트 찬스':'hint',
   '콘서트 후기':'concert', '영화 후기':'movie', '방탈출 후기':'escape', '다녀왔어요':'visited', '다음엔 또!':'again'
 };
-const TYPE_STICKER = { musical:'다녀왔어요', play:'다녀왔어요', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기' };
+const TYPE_STICKER = { exhibit:'다녀왔어요', musical:'다녀왔어요', play:'다녀왔어요', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기' };
 const stickerOf = line => { const m = String(line).match(/^\[스티커: (.+)\]$/); return m && STICKERS[m[1]] ? STICKERS[m[1]] : null; };
 const stickerURL = key => new URL(`stickers/${key}.png`, location.href).href;
 
@@ -539,7 +564,7 @@ function wrapLine(s, max = LINE_MAX){
   while (t.length > max){
     let cut = -1;
     for (let i = Math.min(width, t.length - 1); i >= Math.floor(width * 0.5); i--){
-      if (t[i] === ' ' ){ cut = i; break; }
+      if (t[i] === ' ' && (t.slice(0, i).split("'").length - 1) % 2 === 0){ cut = i; break; }   // 따옴표 안('작품명')은 안 끊음
     }
     if (cut < 0){ const sp = t.lastIndexOf(' ', max); cut = sp > 4 ? sp : max; }
     out.push(t.slice(0, cut).trim()); t = t.slice(cut).trim();
@@ -552,6 +577,10 @@ function wrapBody(lines){
   const out = [];
   lines.forEach(l => {
     if (!l || /^\[(사진|스티커):/.test(l) || /^【/.test(l) || l.length <= LINE_MAX) { out.push(l); return; }
+    if (l.startsWith('▶')){                       // 정보 줄: 앞쪽을 최대한 채우고 나머지를 다음 줄로
+      let t = l; while (t.length > LINE_MAX){ const sp = t.lastIndexOf(' ', LINE_MAX); const cut = sp > 6 ? sp : LINE_MAX; out.push(t.slice(0, cut).trim()); t = t.slice(cut).trim(); }
+      if (t) out.push(t); return;
+    }
     out.push(...wrapLine(l));
   });
   return out;
@@ -613,7 +642,7 @@ function buildPost(ev, photos){
   const moodSticker = () => { if (mood) sticker(mood[0]); };
   const sat = Number(R.satisfaction);
   const scoreSticker = () => { if (sat >= 4.5) sticker('인생작'); else if (R.satisfaction !== undefined && sat <= 2.5) sticker('아쉬워요'); };
-  const rewatchYes = /무조건|또 볼|다른 캐스트|N차|다음 투어|막콘/.test(A.rewatch || '');
+  const rewatchYes = /무조건|또 볼|또 가고|다른 캐스트|N차|다음 투어|막콘/.test(A.rewatch || '');
   const sponsored = A.sponsor === '초대·협찬 받음';
   const disclose = sponsored ? `이 글은 ${josa(A.sponsorWho || '초대권', '을', '를')} 제공받아 작성했어요` : '';
   const ratingLines = () => { section('평점'); body[body.length - 1] += ' (5점 만점)'; RATE[ev.type].forEach(([k, l]) => { if (R[k] !== undefined) push(`▶ ${l} ${stars(R[k])}`); }); scoreSticker(); };
@@ -682,15 +711,23 @@ function buildPost(ev, photos){
       (R.fear ?? 0) >= 3 ? '공포방탈출' : '추리방탈출', A.players === '2인' ? '2인방탈출' : '', (R.story ?? 0) >= 4 ? '스토리방탈출' : '', '방탈출'];
   } else {
     /* ===== 뮤지컬 · 연극 · 영화 · 콘서트 ===== */
-    const isMovie = ev.type === 'movie', isConcert = ev.type === 'concert';
+    const isMovie = ev.type === 'movie', isConcert = ev.type === 'concert', isExhibit = ev.type === 'exhibit';
     const intro2 = isMovie
       ? pick(['스포 없이 솔직한 후기 남겨보겠습니다!', '기억이 생생할 때 바로 정리해 봤어요!'])
+      : isExhibit ? pick(['관람 팁부터 솔직한 후기까지 남겨보겠습니다!', '기억이 생생할 때 바로 정리해 봤어요!', '다녀온 날 바로 써보는 솔직 후기입니다!'])
       : pick(['좌석 시야부터 솔직한 후기까지 남겨보겠습니다!', '기억이 생생할 때 바로 정리해 봤어요!', '보고 온 날 바로 써보는 솔직 후기입니다!']);
-    opening([`오늘은 ${T.name} '${ev.title}' ${isMovie ? '보고' : '관람하고'} 왔습니다 ㅎㅎ`, intro2]);
+    opening([isExhibit ? `오늘은 ${ev.venue}에서 열리는 '${ev.title}' 전시 보고 왔습니다 ㅎㅎ` : `오늘은 ${T.name} '${ev.title}' ${isMovie ? '보고' : '관람하고'} 왔습니다 ㅎㅎ`, intro2]);
     blank(); photoLines('top');
     section('관람 정보');
-    push(`▶ 일시: ${fmtDate(ev.date)} ${ev.time}`, `▶ ${T.venueL}: ${ev.venue}${ev.region ? ` (${ev.region})` : ''}`);
+    push(`▶ 일시: ${fmtDate(ev.date).replace(' (', '(')} ${ev.time}`, `▶ ${T.venueL}: ${ev.venue}${ev.region && !ev.venue.includes(ev.region) ? ` (${ev.region})` : ''}`);
     if (isMovie && A.format) push(`▶ 상영관: ${A.format}`);
+    if (isExhibit){
+      if (A.companion) push(`▶ 동행: ${A.companion}`);
+      if (A.stay) push(`▶ 관람 시간: ${A.stay}`);
+      if (A.crowd) push(`▶ 혼잡도: ${A.crowd}`);
+      if (A.photoRule) push(`▶ 사진 촬영: ${A.photoRule}`);
+      if (A.docent && A.docent !== '안 썼어요') push(`▶ 해설: ${A.docent.replace(/ (들었|썼)어요$/, ' 이용')}`);
+    }
     if (A.seat) push(`▶ 좌석: ${A.seat}`);
     if (A.cast) push(`▶ ${isConcert ? '출연' : '캐스트'}: ${castNames.join(', ')}`);
     photoLines('info');
@@ -701,6 +738,7 @@ function buildPost(ev, photos){
     } else if (isMovie) { photoLines('seat'); }
     ratingLines();
     section(isMovie ? '스포 없는 관람 후기' : isConcert ? '공연 후기' : '관람 후기');
+    if (isExhibit) voice(A.bestWork, '인상 깊은 작품', ['가장 인상 깊었던 작품은요 👍', '제일 오래 머물렀던 작품은요', '이 작품은 꼭 보셨으면 해요']);
     if (isConcert) voice(A.bestSong, '최고의 무대', ['오늘 최고의 무대는요 👍', '셋리스트 중에 하나만 꼽자면', '이 무대는 꼭 얘기하고 싶어요']);
     voice(A.bestActor, '기억에 남는 배우', ['오늘 제일 기억에 남는 배우는요', '배우 얘기부터 해볼게요 ㅎㅎ', '먼저 배우 이야기!']);
     if (ev.type === 'musical') voice(A.bestNumber, '최애 넘버', ['가장 좋았던 넘버는요 👍', '넘버 얘기도 빼놓을 수 없죠', '최애 넘버 하나 꼽자면']);
@@ -708,15 +746,20 @@ function buildPost(ev, photos){
     blank(); push(...polishPara(A.review));
     moodSticker();
     photoLines('after');
-    if (isConcert && A.tipInfo){ section('관람 꿀팁'); sticker('꿀팁'); push(...polishPara(A.tipInfo)); }
+    if ((isConcert || isExhibit) && A.tipInfo){ section('관람 꿀팁'); sticker('꿀팁'); push(...polishPara(A.tipInfo)); }
     if (isMovie && A.cookie){ section('쿠키 영상'); push(`▶ ${A.cookie}`); }
-    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : '재관람 의사'); if (rewatchYes) sticker(isConcert ? '다음엔 또!' : '재관람 각'); push(`▶ ${A.rewatch}`); }
+    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : isExhibit ? '재방문 의사' : '재관람 의사'); if (rewatchYes) sticker(isConcert ? '다음엔 또!' : '재관람 각'); push(`▶ ${A.rewatch}`); }
     recLines(); ending();
     const md = ev.date.slice(5).replace('-', '.');
     title = isMovie
       ? `[영화] '${ev.title}' 후기 ${A.format && A.format !== '일반관' ? A.format : ''} ${String(A.cookie || '').startsWith('쿠키 있음') ? '쿠키' : ''}`
       : `[${T.name}] '${ev.title}' 후기 ${md} ${castNames.slice(0, 2).join(' ')} ${A.seat || A.view ? '좌석시야' : ''}`;
-    if (isConcert){
+    if (isExhibit){
+      const kw = [A.photoRule === '전체 촬영 가능' ? '사진 맛집' : '', A.stay ? '관람시간' : '', A.crowd === '한산했어요' ? '평일' : ''].filter(k => k && !String(A.oneLine || '').includes(k)).slice(0, 2).join(' ');
+      title = `[전시] '${ev.title}' 후기 ${ev.venue} ${kw}`;
+      tags = ['전시' + ev.title, ev.title, ev.title + '후기', ev.title + '전시', ev.venue, ev.venue + '전시', (ev.region || '서울') + '전시', ev.region ? ev.region + '가볼만한곳' : '',
+        '전시추천', '전시회', '전시후기', A.companion === '연인과' ? '데이트코스' : A.companion === '아이와' ? '아이와가볼만한곳' : '주말나들이', A.photoRule === '전체 촬영 가능' ? '사진찍기좋은곳' : '', '문화생활'];
+    } else if (isConcert){
       title = `[콘서트] '${ev.title}' 후기 ${md} ${ev.venue} ${A.seat || A.view ? '좌석시야' : ''}`;
       tags = ['콘서트' + ev.title, ev.title, ev.title + '후기', ev.title + '셋리스트', ev.venue, ev.venue + '시야', ev.venue + '좌석', ...castNames.slice(0, 3), '콘서트후기', '콘서트시야', '공연후기', '문화생활'];
     } else tags = isMovie
@@ -910,7 +953,7 @@ function photoCard(it, ps){
   const done = ps.length > 0;
   return `<article class="pcard ${done ? 'done' : ''}">
     <div class="pc-head"><span class="pc-icon">${it.icon}</span>
-      <div><b>${it.label}</b><span class="when ${it.when}">${it.when === 'before' ? '시작 전' : '끝나고'}</span></div>
+      <div><b>${it.label}</b><span class="when ${it.when}">${{ before:'시작 전', during:'관람 중', after:'끝나고' }[it.when]}</span></div>
       ${done ? '<span class="check">✓</span>' : ''}</div>
     <p class="tip">💡 ${it.tip}</p>
     ${done ? `<div class="thumbs">${ps.map(p => `<div class="thumb"><img src="${urlOf(p)}" alt="${esc(it.label)}" onclick="openMoveSheet('${p.id}')"><button class="x" onclick="removePhoto('${p.id}')" aria-label="삭제">✕</button></div>`).join('')}</div>` : ''}
@@ -952,13 +995,16 @@ async function bulkUpload(e){
   list.sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity));
   const existing = await getPhotos(ev.id);
   const free = w => items.filter(it => it.when === w && !existing.some(p => p.key === it.k)).map(it => it.k);
-  const before = free('before'), after = free('after');
+  const before = free('before'), during = free('during'), after = free('after'), e2 = endMs(ev);
   const anyTime = list.some(x => x.t);
   let placed = 0;
   for (const [i, x] of list.entries()){
     let key;
-    if (anyTime && x.t){ key = (x.t < s ? before : after).shift() || (x.t < s ? after : before).shift(); }
-    else key = before.shift() || after.shift();                       // 시간 정보가 없으면 고른 순서대로
+    if (anyTime && x.t){
+      const order = x.t < s ? [before, during, after] : x.t < e2 ? [during, after, before] : [after, during, before];
+      key = order[0].shift() || order[1].shift() || order[2].shift();
+    }
+    else key = before.shift() || during.shift() || after.shift();                       // 시간 정보가 없으면 고른 순서대로
     if (key) placed++; else key = 'extra';
     const blob = await compressImage(x.f);
     await putPhoto({ id: uid(), eventId: ev.id, key, blob, ts: Date.now() + i });
@@ -1343,7 +1389,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.24-2';
+const APP_VERSION = '2026.10.24-3';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
