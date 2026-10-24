@@ -185,6 +185,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .paper .sec{font-weight:900;margin-top:4px;color:var(--velvet)}
 .paper .slot{display:inline-block;color:#b4600b;font-weight:700;background:#fff1de;border-radius:8px;padding:2px 8px;margin:4px 0}
 .paper img{display:block;max-width:min(100%,420px);margin:6px auto 2px;border-radius:12px}
+.paper img.stk{width:150px;border-radius:0;margin:2px auto}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tags span{background:var(--gold-soft);color:var(--gold);padding:5px 11px;border-radius:99px;font-size:.86rem;font-weight:700}
 .howto{font-size:.88rem;color:var(--muted);background:var(--card);border:1.5px dashed var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px}
@@ -409,6 +410,19 @@ const QUESTIONS = {
 const REACT = ['오 좋아요! ','기록 완료 ✍️ ','ㅎㅎ 그렇군요! ','완전 생생해요 👍 ','좋아요, 다음! '];
 
 /* ---------------------------------------------------------------
+   3-1. 스티커 (stickers 폴더의 PNG) — 본문의 [스티커: 라벨] 줄이 이 그림으로 바뀜
+   --------------------------------------------------------------- */
+const STICKERS = {
+  '내돈내산':'naedon', '협찬':'sponsor', '총평':'summary', '꽃길':'flower', '추천해요':'recommend', '아쉬워요':'sorry',
+  '인생작':'best', '눈물 줄줄':'tears', '소름':'chills', '빵 터짐':'lol', '시야 체크':'view', '꿀팁':'tip', '재관람 각':'rewatch',
+  '탈출 성공':'escape_ok', '탈출 실패':'escape_fail', '힌트 찬스':'hint',
+  '콘서트 후기':'concert', '영화 후기':'movie', '방탈출 후기':'escape', '다녀왔어요':'visited', '다음엔 또!':'again'
+};
+const TYPE_STICKER = { musical:'다녀왔어요', play:'다녀왔어요', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기' };
+const stickerOf = line => { const m = String(line).match(/^\[스티커: (.+)\]$/); return m && STICKERS[m[1]] ? STICKERS[m[1]] : null; };
+const stickerURL = key => new URL(`stickers/${key}.png`, location.href).href;
+
+/* ---------------------------------------------------------------
    4. 저장소: 일정(localStorage) + 사진(IndexedDB, 실패 시 메모리)
    --------------------------------------------------------------- */
 const LS_KEY = 'glgamnote_events_v1';
@@ -570,12 +584,24 @@ function buildPost(ev, photos){
     if (isShort(val)) { push(`▶ ${label}: ${val}`); return; }
     blank(); push(pick(leads)); push(...polishPara(val));
   };
+  /* --- 스티커 자동 배치 규칙 ---
+     · 같은 스티커는 한 번만 · 감정 스티커는 후기 내용의 단어를 보고 1개만 고름 */
+  const usedStk = new Set();
+  const sticker = label => { if (usedStk.has(label)) return; usedStk.add(label); blank(); push(`[스티커: ${label}]`); };
+  const allText = [A.review, A.bestActor, A.bestNumber, A.bestSong, A.bestScene, A.oneLine].filter(Boolean).join(' ');
+  const count = re => (allText.match(re) || []).length;
+  const mood = [['눈물 줄줄', count(/눈물|울컥|울었|오열|펑펑|ㅠㅠ|ㅜㅜ/g)], ['소름', count(/소름|전율|닭살|미쳤|미친|압도/g)], ['빵 터짐', count(/ㅋㅋㅋ|웃겼|웃김|빵\s?터|개웃|폭소/g)]]
+    .filter(m => m[1] > 0).sort((a, b) => b[1] - a[1])[0];
+  const moodSticker = () => { if (mood) sticker(mood[0]); };
+  const sat = Number(R.satisfaction);
+  const scoreSticker = () => { if (sat >= 4.5) sticker('인생작'); else if (R.satisfaction !== undefined && sat <= 2.5) sticker('아쉬워요'); };
+  const rewatchYes = /무조건|또 볼|다른 캐스트|N차|다음 투어|막콘/.test(A.rewatch || '');
   const sponsored = A.sponsor === '초대·협찬 받음';
   const disclose = sponsored ? `이 글은 ${josa(A.sponsorWho || '초대권', '을', '를')} 제공받아 작성했어요` : '';
-  const ratingLines = () => { section('평점'); body[body.length - 1] += ' (5점 만점)'; RATE[ev.type].forEach(([k, l]) => { if (R[k] !== undefined) push(`▶ ${l} ${stars(R[k])}`); }); };
+  const ratingLines = () => { section('평점'); body[body.length - 1] += ' (5점 만점)'; RATE[ev.type].forEach(([k, l]) => { if (R[k] !== undefined) push(`▶ ${l} ${stars(R[k])}`); }); scoreSticker(); };
   const recLines = () => {
-    if (A.recommend){ section('이런 분께 추천해요'); splitList(A.recommend).forEach(x => push('▶ ' + x)); }
-    if (A.notRecommend){ section('이런 분께는 비추천이에요'); splitList(A.notRecommend).forEach(x => push('▶ ' + x)); }
+    if (A.recommend){ sticker('추천해요'); section('이런 분께 추천해요'); splitList(A.recommend).forEach(x => push('▶ ' + x)); }
+    if (A.notRecommend){ sticker('아쉬워요'); section('이런 분께는 비추천이에요'); splitList(A.notRecommend).forEach(x => push('▶ ' + x)); }
   };
   const ending = () => {
     blank(); push('[스티커: 총평]'); blank();
@@ -583,7 +609,12 @@ function buildPost(ev, photos){
     if (disclose){ blank(); push(disclose); }
     blank(); push('[스티커: 꽃길]');
   };
-  const opening = lines => { push('안녕하세요!', ...lines); if (disclose){ blank(); push(disclose); } blank(); if (!sponsored) push('[스티커: 내돈내산]'); };
+  const opening = lines => {
+    sticker(TYPE_STICKER[ev.type]);                       // 글 맨 위: 종류 스티커 (콘서트 후기 / 영화 후기 …)
+    blank(); push('안녕하세요!', ...lines);
+    if (disclose){ blank(); push(disclose); }
+    sticker(sponsored ? '협찬' : '내돈내산');
+  };
   const short = String(A.oneLine || '').replace(/[.!~…\s]+$/, '');
   const castNames = splitList(A.cast);
   let title = '', tags = [];
@@ -611,13 +642,15 @@ function buildPost(ev, photos){
       push(`▶ 결과: ${ok ? '탈출 성공 🏆' : '탈출 실패'}${extra ? ` (${extra})` : ''}`);
     }
     if (A.recommendOK) push(`▶ 추천 여부: ${A.recommendOK}`);
+    if (A.result) sticker(ok ? '탈출 성공' : '탈출 실패');
     photoLines('info');
     ratingLines();
     section('스포 없는 후기');
     if (ok && /^(0분|\d+초)/.test(String(A.remain || '').trim())) push('1분도 안 남기고 아슬아슬하게 탈출해서', '마지막엔 심장 터지는 줄 알았어요 ㅋㅋ', '');
     push(...polishPara(A.review));
+    moodSticker();
     photoLines('after');
-    if (A.tip){ section('인원 팁'); push(...polishPara(A.tip)); }
+    if (A.tip){ sticker(Number(A.hints) >= 2 ? '힌트 찬스' : '꿀팁'); section('인원 팁'); push(...polishPara(A.tip)); }
     recLines(); ending();
     // 제목 키워드: 평점·인원에서 1~2개
     const kw = [];
@@ -644,7 +677,7 @@ function buildPost(ev, photos){
     if (A.cast) push(`▶ ${isConcert ? '출연' : '캐스트'}: ${castNames.join(', ')}`);
     photoLines('info');
     if (!isMovie && (A.view || A.viewMemo || photos.some(p => p.key === 'seatview'))){
-      section('좌석 시야'); photoLines('seat');
+      section('좌석 시야'); sticker('시야 체크'); photoLines('seat');
       if (A.view) push(`▶ 시야: ${A.view}`);
       if (A.viewMemo) push(...polishPara(A.viewMemo));
     } else if (isMovie) { photoLines('seat'); }
@@ -655,10 +688,11 @@ function buildPost(ev, photos){
     if (ev.type === 'musical') voice(A.bestNumber, '최애 넘버', ['가장 좋았던 넘버는요 👍', '넘버 얘기도 빼놓을 수 없죠', '최애 넘버 하나 꼽자면']);
     else voice(A.bestScene, '기억에 남는 장면', ['가장 기억에 남는 장면은요', '명장면 하나 꼽자면', '이 장면은 꼭 얘기하고 싶어요']);
     blank(); push(...polishPara(A.review));
+    moodSticker();
     photoLines('after');
-    if (isConcert && A.tipInfo){ section('관람 꿀팁'); push(...polishPara(A.tipInfo)); }
+    if (isConcert && A.tipInfo){ section('관람 꿀팁'); sticker('꿀팁'); push(...polishPara(A.tipInfo)); }
     if (isMovie && A.cookie){ section('쿠키 영상'); push(`▶ ${A.cookie}`); }
-    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : '재관람 의사'); push(`▶ ${A.rewatch}`); }
+    if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : '재관람 의사'); if (rewatchYes) sticker(isConcert ? '다음엔 또!' : '재관람 각'); push(`▶ ${A.rewatch}`); }
     recLines(); ending();
     const md = ev.date.slice(5).replace('-', '.');
     title = isMovie
@@ -995,6 +1029,8 @@ async function renderBlogTab(ev){
     if (!l) return '<p>&nbsp;</p>';
     const ph = l.match(/^\[사진: (\d\d) (.+)\]$/);
     if (ph && byNo[ph[1]]) return `<img src="${urlOf(byNo[ph[1]].p)}" alt=""><p><span class="slot">📌 사진 ${ph[1]} · ${esc(ph[2])}</span></p>`;
+    const sk = stickerOf(l);
+    if (sk) return `<p><img class="stk" src="stickers/${sk}.png" alt="${esc(l.slice(6, -1))}"></p>`;
     if (/^\[(사진|스티커):/.test(l)) return `<p><span class="slot">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
     if (/^【/.test(l)) return `<p class="sec">${esc(l)}</p>`;
     return `<p>${esc(l)}</p>`;
@@ -1004,7 +1040,7 @@ async function renderBlogTab(ev){
     <div class="paper">${post.body.map(lineHTML).join('')}</div>
     <div class="card"><div class="label">태그 ${post.tags.length}개</div><div class="tags">${post.tags.map(t => `<span>#${esc(t)}</span>`).join('')}</div></div>
     <div class="howto">💡 <b>사용법</b> ① 제목 복사 → ② 본문 복사 후 네이버 에디터에 붙여넣기 (가운데 정렬 유지)
-      → ③ 주황색 📌 줄을 지우고 그 자리에 사진·스티커 넣기 (사진은 <b>사진 저장</b> 버튼으로 번호 순서대로 받아져요) → ④ 태그 복사<br>
+      → ③ <b>스티커는 그림으로 자동으로 들어가요</b> 🎉 주황색 📌 사진 줄만 지우고 그 자리에 사진 넣기 (<b>사진 저장</b> 버튼으로 번호 순서대로 받아져요) → ④ 태그 복사<br>
       ✏️ 내용이 마음에 안 들면 💬 후기 탭에서 답변을 고치면 바로 반영돼요.</div>
     <button class="btn btn-ghost btn-big" onclick="reshuffle()">🔀 연결 문장 다시 섞기</button>`;
   $('#dock').innerHTML = `<div class="actionbar"><div class="in">
@@ -1038,6 +1074,8 @@ async function copyPlain(text){
 function bodyHTML(lines){
   return lines.map(l => {
     if (!l) return '<p style="text-align:center"><br></p>';
+    const sk = stickerOf(l);
+    if (sk) return `<p style="text-align:center"><img src="${stickerURL(sk)}" width="170" alt="${esc(l.slice(6, -1))}"></p>`;
     if (/^\[(사진|스티커):/.test(l)) return `<p style="text-align:center"><span style="color:#f08a24;font-weight:bold">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
     return `<p style="text-align:center">${esc(l)}</p>`;
   }).join('');
@@ -1199,7 +1237,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.21-1';
+const APP_VERSION = '2026.10.24-1';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
