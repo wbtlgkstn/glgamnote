@@ -180,8 +180,8 @@ button,input,textarea,select{font:inherit;color:inherit}
 
 /* ---------- 블로그 미리보기 (실제 블로그처럼 흰 종이로 표시) ---------- */
 .post-title{font-size:1.1rem;font-weight:900;word-break:keep-all}
-.paper{background:#fffdfb;color:#221a1b;border-radius:var(--radius);box-shadow:var(--shadow);padding:24px 14px;margin-bottom:14px;text-align:center;border-top:6px solid var(--velvet)}
-.paper p{margin:0;min-height:1.6em;font-size:.98rem;word-break:keep-all}
+.paper{max-width:430px;margin-left:auto!important;margin-right:auto!important;background:#fffdfb;color:#221a1b;border-radius:var(--radius);box-shadow:var(--shadow);padding:24px 14px;margin-bottom:14px;text-align:center;border-top:6px solid var(--velvet)}
+.paper p{margin:0;min-height:1.6em;font-size:min(.98rem,3.3vw);letter-spacing:-.02em;white-space:nowrap;word-break:keep-all}   /* 실제 모바일 블로그처럼 한 줄씩 그대로 보이게 */
 .paper .sec{font-weight:900;margin-top:4px;color:var(--velvet)}
 .paper .slot{display:inline-block;color:#b4600b;font-weight:700;background:#fff1de;border-radius:8px;padding:2px 8px;margin:4px 0}
 .paper img{display:block;max-width:min(100%,420px);margin:6px auto 2px;border-radius:12px}
@@ -528,14 +528,32 @@ function polishSentence(s){
   return (softenEnding(m[1].trim()) + m[2]).trim();
 }
 /* 한 줄 40자 안팎으로 자르기 (가운데 정렬 블로그용) */
-function wrapLine(s, max = 38){
-  const out = []; let t = s.trim();
-  while (t.length > max + 4){
-    let cut = t.lastIndexOf(', ', max);
-    if (cut > 12) cut += 1; else { const sp = t.lastIndexOf(' ', max); cut = sp > 10 ? sp : max; }
+/* 모바일 블로그(가운데 정렬)는 한 줄에 약 25자 → 25자 안쪽에서, 줄 길이가 고르게 끊기도록 */
+const LINE_MAX = 25;
+function wrapLine(s, max = LINE_MAX){
+  let t = String(s).trim();
+  if (t.length <= max) return t ? [t] : [];
+  const n = Math.ceil(t.length / max);
+  const width = Math.min(max, Math.ceil(t.length / n) + 4);   // 마지막 줄만 짧게 남지 않도록 고르게
+  const out = [];
+  while (t.length > max){
+    let cut = -1;
+    for (let i = Math.min(width, t.length - 1); i >= Math.floor(width * 0.5); i--){
+      if (t[i] === ' ' ){ cut = i; break; }
+    }
+    if (cut < 0){ const sp = t.lastIndexOf(' ', max); cut = sp > 4 ? sp : max; }
     out.push(t.slice(0, cut).trim()); t = t.slice(cut).trim();
   }
   if (t) out.push(t);
+  return out;
+}
+/* 완성된 본문의 모든 줄을 25자 기준으로 정리 (스티커·사진·섹션 제목 줄은 그대로) */
+function wrapBody(lines){
+  const out = [];
+  lines.forEach(l => {
+    if (!l || /^\[(사진|스티커):/.test(l) || /^【/.test(l) || l.length <= LINE_MAX) { out.push(l); return; }
+    out.push(...wrapLine(l));
+  });
   return out;
 }
 /* 여러 문단 텍스트 → 다듬어진 줄 배열 */
@@ -708,7 +726,8 @@ function buildPost(ev, photos){
   title = (title + (short ? ` | ${short}` : '')).replace(/\s{2,}/g, ' ').trim();
   tags = [...new Set(tags.map(cleanTag).filter(t => t.length > 1))].slice(0, 15);
   while (body[0] === '') body.shift();                 // 앞뒤 빈 줄 정리
-  return { title, body: body.filter((l, i) => !(l === '' && body[i - 1] === '')), tags, order };
+  const wrapped = wrapBody(body);
+  return { title, body: wrapped.filter((l, i) => !(l === '' && wrapped[i - 1] === '')), tags, order };
 }
 
 /* ---------------------------------------------------------------
@@ -878,6 +897,12 @@ async function renderPhotoTab(ev){
       <div class="gauge"><i style="width:${pct}%"></i></div>
       <div class="small muted">${msg}</div>
     </div>
+    <div class="card bulk">
+      <div class="label">📥 사진 한꺼번에 올리기</div>
+      <p class="small muted" style="margin:0 0 10px">앨범에서 여러 장을 고르면 <b>찍은 시간</b>을 보고 알맞은 칸에 자동으로 넣어요.
+        잘못 들어간 사진은 <b>사진을 눌러</b> 칸을 옮기면 돼요.</p>
+      <label class="btn btn-gold btn-big">🖼 여러 장 골라서 자동 정리<input type="file" accept="image/*" multiple hidden onchange="bulkUpload(event)"></label>
+    </div>
     <div class="photo-grid">${items.map(it => photoCard(it, of(it.k))).join('')}${photoCard(EXTRA, of('extra'))}</div>`;
   return { done, total: items.length };
 }
@@ -888,7 +913,7 @@ function photoCard(it, ps){
       <div><b>${it.label}</b><span class="when ${it.when}">${it.when === 'before' ? '시작 전' : '끝나고'}</span></div>
       ${done ? '<span class="check">✓</span>' : ''}</div>
     <p class="tip">💡 ${it.tip}</p>
-    ${done ? `<div class="thumbs">${ps.map(p => `<div class="thumb"><img src="${urlOf(p)}" alt="${esc(it.label)}"><button class="x" onclick="removePhoto('${p.id}')" aria-label="삭제">✕</button></div>`).join('')}</div>` : ''}
+    ${done ? `<div class="thumbs">${ps.map(p => `<div class="thumb"><img src="${urlOf(p)}" alt="${esc(it.label)}" onclick="openMoveSheet('${p.id}')"><button class="x" onclick="removePhoto('${p.id}')" aria-label="삭제">✕</button></div>`).join('')}</div>` : ''}
     <div class="pc-btns">
       <label class="btn btn-main">📷 찍기<input type="file" accept="image/*" capture="environment" hidden onchange="addPhotos(event,'${it.k}')"></label>
       <label class="btn btn-sub">🖼 앨범<input type="file" accept="image/*" multiple hidden onchange="addPhotos(event,'${it.k}')"></label>
@@ -903,6 +928,56 @@ async function addPhotos(e, key){
   if (!before && key !== 'extra'){
     if (res.done === res.total) celebrate('🏆', '촬영 미션 올클리어!', true); else celebrate('📸', '미션 성공!');
   } else toast('추가했어요 👍');
+}
+/* 사진의 찍은 시간 읽기: JPEG EXIF(DateTimeOriginal) → 없으면 파일 수정 시간 */
+async function photoTime(file){
+  try{
+    const buf = await file.slice(0, 256 * 1024).arrayBuffer(); const v = new DataView(buf);
+    if (v.getUint16(0) === 0xFFD8){
+      const txt = new TextDecoder('ascii').decode(new Uint8Array(buf));
+      const m = txt.match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);   // EXIF 날짜 문자열
+      if (m) return new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+    }
+  }catch(e){}
+  const lm = file.lastModified;
+  return lm && Math.abs(Date.now() - lm) > 120000 ? lm : null;   // 방금 만든 시간(=알 수 없음)은 무시
+}
+/* 일괄 업로드: 시간순 정렬 → 시작 전 사진은 '시작 전' 칸, 끝나고 찍은 사진은 '끝나고' 칸에 순서대로 */
+async function bulkUpload(e){
+  const files = [...(e.target.files || [])]; if (!files.length) return;
+  const ev = curEv(), items = PHOTOS[ev.type], s = startMs(ev);
+  toast(`사진 ${files.length}장 정리 중…`);
+  const list = [];
+  for (const f of files) list.push({ f, t: await photoTime(f) });
+  list.sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity));
+  const existing = await getPhotos(ev.id);
+  const free = w => items.filter(it => it.when === w && !existing.some(p => p.key === it.k)).map(it => it.k);
+  const before = free('before'), after = free('after');
+  const anyTime = list.some(x => x.t);
+  let placed = 0;
+  for (const [i, x] of list.entries()){
+    let key;
+    if (anyTime && x.t){ key = (x.t < s ? before : after).shift() || (x.t < s ? after : before).shift(); }
+    else key = before.shift() || after.shift();                       // 시간 정보가 없으면 고른 순서대로
+    if (key) placed++; else key = 'extra';
+    const blob = await compressImage(x.f);
+    await putPhoto({ id: uid(), eventId: ev.id, key, blob, ts: Date.now() + i });
+  }
+  const res = await renderPhotoTab(ev);
+  celebrate('🖼', `${files.length}장 자동 정리 완료!${placed < files.length ? `\n(${files.length - placed}장은 기타 사진)` : ''}`, res.done === res.total);
+}
+/* 사진 칸 옮기기 */
+async function openMoveSheet(pid){
+  const ev = curEv(), list = [...PHOTOS[ev.type], EXTRA];
+  const ph = (await getPhotos(ev.id)).find(p => p.id === pid); if (!ph) return;
+  openSheet(`<h3>📂 이 사진을 어느 칸에 넣을까요?</h3>
+    <img src="${urlOf(ph)}" alt="" style="display:block;max-width:100%;max-height:34vh;margin:0 auto 14px;border-radius:14px">
+    <div class="chips">${list.map(it => `<button class="chip ${it.k === ph.key ? 'on' : ''}" onclick="movePhoto('${pid}','${it.k}')">${it.icon} ${esc(it.label)}</button>`).join('')}</div>`);
+}
+async function movePhoto(pid, key){
+  const ev = curEv(); const ph = (await getPhotos(ev.id)).find(p => p.id === pid);
+  if (ph){ ph.key = key; await putPhoto(ph); }
+  closeSheet(); renderPhotoTab(ev); toast('칸을 옮겼어요 👍');
 }
 async function removePhoto(pid){
   await delPhoto(pid); if (urlCache[pid]){ URL.revokeObjectURL(urlCache[pid]); delete urlCache[pid]; }
@@ -1028,7 +1103,7 @@ async function renderBlogTab(ev){
   const lineHTML = l => {
     if (!l) return '<p>&nbsp;</p>';
     const ph = l.match(/^\[사진: (\d\d) (.+)\]$/);
-    if (ph && byNo[ph[1]]) return `<img src="${urlOf(byNo[ph[1]].p)}" alt=""><p><span class="slot">📌 사진 ${ph[1]} · ${esc(ph[2])}</span></p>`;
+    if (ph && byNo[ph[1]]) return `<img src="${urlOf(byNo[ph[1]].p)}" alt="">`;
     const sk = stickerOf(l);
     if (sk) return `<p><img class="stk" src="stickers/${sk}.png" alt="${esc(l.slice(6, -1))}"></p>`;
     if (/^\[(사진|스티커):/.test(l)) return `<p><span class="slot">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
@@ -1040,7 +1115,7 @@ async function renderBlogTab(ev){
     <div class="paper">${post.body.map(lineHTML).join('')}</div>
     <div class="card"><div class="label">태그 ${post.tags.length}개</div><div class="tags">${post.tags.map(t => `<span>#${esc(t)}</span>`).join('')}</div></div>
     <div class="howto">💡 <b>사용법</b> ① 제목 복사 → ② 본문 복사 후 네이버 에디터에 붙여넣기 (가운데 정렬 유지)
-      → ③ <b>스티커는 그림으로 자동으로 들어가요</b> 🎉 주황색 📌 사진 줄만 지우고 그 자리에 사진 넣기 (<b>사진 저장</b> 버튼으로 번호 순서대로 받아져요) → ④ 태그 복사<br>
+      → ③ <b>사진과 스티커는 제자리에 자동으로 들어가요</b> 🎉 (사진이 빠지면 <b>사진 저장</b>으로 번호 순서대로 받아서 넣기) → ④ 태그 복사<br>
       ✏️ 내용이 마음에 안 들면 💬 후기 탭에서 답변을 고치면 바로 반영돼요.</div>
     <button class="btn btn-ghost btn-big" onclick="reshuffle()">🔀 연결 문장 다시 섞기</button>`;
   $('#dock').innerHTML = `<div class="actionbar"><div class="in">
@@ -1071,9 +1146,27 @@ async function copyRich(html, text){
 async function copyPlain(text){
   try{ await navigator.clipboard.writeText(text); return true; }catch(e){ return copyRich(esc(text), text); }
 }
-function bodyHTML(lines){
+/* 사진을 블로그용 크기(긴 변 1080px)의 그림 데이터로 변환 */
+async function blobToDataURL(blob, max = 1080, q = 0.82){
+  const url = URL.createObjectURL(blob);
+  try{
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+    const r = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * r); c.height = Math.round(img.naturalHeight * r);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  } finally { URL.revokeObjectURL(url); }
+}
+async function photoDataMap(post){
+  const map = {};
+  for (const o of post.order) map[o.no] = await blobToDataURL(o.p.blob);
+  return map;
+}
+function bodyHTML(lines, photoMap = {}){
   return lines.map(l => {
     if (!l) return '<p style="text-align:center"><br></p>';
+    const ph = l.match(/^\[사진: (\d\d) (.+)\]$/);
+    if (ph && photoMap[ph[1]]) return `<p style="text-align:center"><img src="${photoMap[ph[1]]}" alt="${esc(ph[2])}" style="max-width:100%"></p>`;
     const sk = stickerOf(l);
     if (sk) return `<p style="text-align:center"><img src="${stickerURL(sk)}" width="170" alt="${esc(l.slice(6, -1))}"></p>`;
     if (/^\[(사진|스티커):/.test(l)) return `<p style="text-align:center"><span style="color:#f08a24;font-weight:bold">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
@@ -1083,8 +1176,21 @@ function bodyHTML(lines){
 async function copyTitle(){ toast(await copyPlain(state.post.title) ? '제목 복사 완료! 🏷️' : '복사가 안 됐어요. 길게 눌러 직접 복사해 주세요'); }
 async function copyTags(){ toast(await copyPlain(state.post.tags.map(t => '#' + t).join(' ')) ? '태그 복사 완료! #️⃣' : '복사 실패 😢'); }
 async function copyBody(){
-  const ok = await copyRich(bodyHTML(state.post.body), state.post.body.join('\n'));
-  if (ok) celebrate('📄', '본문 복사 완료!\n에디터에 붙여넣으세요'); else toast('복사 실패 😢 다시 눌러 주세요');
+  const post = state.post, text = post.body.join('\n');
+  const htmlPromise = photoDataMap(post).then(m => bodyHTML(post.body, m));
+  // 아이폰 Safari는 버튼을 누른 '그 순간'에 복사를 시작해야 해서, 내용은 나중에 채워지는 방식(Promise)으로 넘김
+  let ok = false;
+  try{
+    if (window.ClipboardItem && navigator.clipboard?.write){
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': htmlPromise.then(h => new Blob([h], { type:'text/html' })),
+        'text/plain': new Blob([text], { type:'text/plain' })
+      })]);
+      ok = true;
+    }
+  }catch(e){}
+  if (!ok) ok = await copyRich(await htmlPromise, text);
+  if (ok) celebrate('📄', `본문 복사 완료!${post.order.length ? `\n사진 ${post.order.length}장 포함` : ''}`); else toast('복사 실패 😢 다시 눌러 주세요');
 }
 /* 사진 저장: 글 순서대로 01_이름.jpg — 휴대폰은 공유 시트(갤러리 저장), PC는 다운로드 */
 async function savePhotos(){
@@ -1237,7 +1343,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.24-1';
+const APP_VERSION = '2026.10.24-2';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
