@@ -186,6 +186,18 @@ button,input,textarea,select{font:inherit;color:inherit}
 .paper .slot{display:inline-block;color:#b4600b;font-weight:700;background:#fff1de;border-radius:8px;padding:2px 8px;margin:4px 0}
 .paper img{display:block;max-width:min(100%,420px);margin:6px auto 2px;border-radius:12px}
 .paper img.stk{width:150px;border-radius:0;margin:2px auto}
+.steps-guide{margin:0 0 14px;padding-left:20px;line-height:1.7;font-size:.93rem}
+.steps-guide li{margin-bottom:6px}
+.paper.steps{padding:12px 10px}
+.chunk{position:relative;border:1.5px dashed #e6d6d0;border-radius:14px;padding:10px 6px 12px;margin:0 0 10px;transition:background .3s,border-color .3s,opacity .3s}
+.chunk.img img{margin-top:4px}
+.chunk.done{opacity:.55;border-style:solid;border-color:#bfe6d0;background:#f3fbf6}
+.chunk.next{border-color:#a3111f;border-style:solid;box-shadow:0 0 0 3px rgba(163,17,31,.15)}
+.ck-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ck-no{min-width:28px;height:28px;border-radius:50%;background:#a3111f;color:#fff;font-weight:900;font-size:.85rem;display:grid;place-items:center}
+.chunk.done .ck-no{background:#16a679}
+.ck-kind{font-size:.78rem;font-weight:700;color:#8a6f6a}
+.ck-btn{margin-left:auto;min-height:38px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tags span{background:var(--gold-soft);color:var(--gold);padding:5px 11px;border-radius:99px;font-size:.86rem;font-weight:700}
 .howto{font-size:.88rem;color:var(--muted);background:var(--card);border:1.5px dashed var(--line);border-radius:14px;padding:12px 14px;margin-bottom:14px}
@@ -1156,20 +1168,116 @@ async function renderBlogTab(ev){
     if (/^【/.test(l)) return `<p class="sec">${esc(l)}</p>`;
     return `<p>${esc(l)}</p>`;
   };
+  state.chunks = makeChunks(post, byNo);
+  prepareChunkFiles(state.chunks);                    // 저장 버튼을 누르는 순간 바로 공유 창이 뜨도록 미리 준비
+  const imgCount = state.chunks.filter(c => c.kind === 'img').length;
   $('#tabBody').innerHTML = `
     <div class="card"><div class="label">제목</div><div class="post-title">${esc(post.title)}</div></div>
-    <div class="paper">${post.body.map(lineHTML).join('')}</div>
+    <div class="card howto-card">
+      <div class="label">📱 네이버 블로그 앱에서 이렇게 써요</div>
+      <ol class="steps-guide">
+        <li><b>이미지 ${imgCount}개 한 번에 저장</b>을 눌러 앨범에 순서대로 저장해요</li>
+        <li>아래 <b>번호 순서대로</b> 넣어요<br>
+          <span class="muted">· 글 칸 → <b>복사</b> 누르고 블로그에 붙여넣기<br>· 그림 칸 → 블로그의 📷 사진 버튼으로 그 그림 고르기</span></li>
+        <li>다 넣으면 <b>전체 선택 → 가운데 정렬</b></li>
+      </ol>
+      <button class="btn btn-gold btn-big" onclick="saveAllImages()">🖼 이미지 ${imgCount}개 한 번에 저장</button>
+    </div>
+    <div class="paper steps">${state.chunks.map(chunkHTML).join('')}</div>
     <div class="card"><div class="label">태그 ${post.tags.length}개</div><div class="tags">${post.tags.map(t => `<span>#${esc(t)}</span>`).join('')}</div></div>
-    <div class="howto">💡 <b>사용법</b> ① 제목 복사 → ② 본문 복사 후 네이버 에디터에 붙여넣기 (가운데 정렬 유지)
-      → ③ <b>사진과 스티커는 제자리에 자동으로 들어가요</b> 🎉 (사진이 빠지면 <b>사진 저장</b>으로 번호 순서대로 받아서 넣기) → ④ 태그 복사<br>
+    <div class="howto">💻 PC에서는 아래 <b>전체 복사</b>로 한 번에 붙여넣어 볼 수 있어요. 그림이 빠지면 위의 번호 순서대로 넣어 주세요.<br>
       ✏️ 내용이 마음에 안 들면 💬 후기 탭에서 답변을 고치면 바로 반영돼요.</div>
     <button class="btn btn-ghost btn-big" onclick="reshuffle()">🔀 연결 문장 다시 섞기</button>`;
   $('#dock').innerHTML = `<div class="actionbar"><div class="in">
     <button class="btn btn-sub" onclick="copyTitle()"><span>🏷️</span>제목</button>
-    <button class="btn btn-main" onclick="copyBody()"><span>📄</span>본문</button>
+    <button class="btn btn-main" onclick="nextStep()"><span>⏭️</span>다음 단계</button>
     <button class="btn btn-sub" onclick="copyTags()"><span>#️⃣</span>태그</button>
-    <button class="btn btn-sub" onclick="savePhotos()"><span>🖼️</span>사진 저장</button></div></div>`;
+    <button class="btn btn-sub" onclick="copyBody()"><span>📄</span>전체 복사</button></div></div>`;
   fitDock();
+}
+
+/* ---------- 단계별 붙여넣기: 본문을 [글 덩어리] / [그림] 단위로 나눔 ---------- */
+function makeChunks(post, byNo){
+  const chunks = []; let text = [];
+  const flush = () => {
+    while (text.length && text[0] === '') text.shift();
+    while (text.length && text[text.length - 1] === '') text.pop();
+    if (text.length) chunks.push({ kind:'text', lines: text });
+    text = [];
+  };
+  post.body.forEach(l => {
+    const ph = l.match(/^\[사진: (\d\d) (.+)\]$/);
+    const sk = stickerOf(l);
+    if (ph && byNo[ph[1]]){ flush(); chunks.push({ kind:'img', label: ph[2], src: urlOf(byNo[ph[1]].p), blob: byNo[ph[1]].p.blob, ext:'jpg' }); }
+    else if (sk){ flush(); chunks.push({ kind:'img', label: l.slice(6, -1), src: `stickers/${sk}.png`, sticker: sk, ext:'png', isSticker: true }); }
+    else text.push(l);
+  });
+  flush();
+  chunks.forEach((c, i) => c.no = i + 1);
+  return chunks;
+}
+async function prepareChunkFiles(chunks){
+  for (const c of chunks){
+    if (c.kind !== 'img' || c.file) continue;
+    try{
+      const blob = c.blob || await (await fetch(stickerURL(c.sticker))).blob();
+      c.file = new File([blob], `${pad(c.no)}_${c.label.replace(/[\\/:*?"<>|\s·()!]/g, '')}.${c.ext}`, { type: c.ext === 'png' ? 'image/png' : 'image/jpeg' });
+    }catch(e){}
+  }
+}
+function chunkLineHTML(l){
+  if (!l) return '<p>&nbsp;</p>';
+  if (/^\[(사진|스티커):/.test(l)) return `<p><span class="slot">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
+  if (/^【/.test(l)) return `<p class="sec">${esc(l)}</p>`;
+  return `<p>${esc(l)}</p>`;
+}
+function chunkHTML(c, i){
+  const head = `<div class="ck-head"><span class="ck-no">${c.no}</span><span class="ck-kind">${c.kind === 'text' ? '글' : c.isSticker ? '스티커' : '사진'}</span>`;
+  if (c.kind === 'text') return `<div class="chunk ${c.done ? 'done' : ''}" id="ck-${i}">${head}
+      <button class="btn btn-main btn-sm ck-btn" onclick="copyChunk(${i})">${c.done ? '✓ 복사함' : '📋 복사'}</button></div>
+      ${c.lines.map(chunkLineHTML).join('')}</div>`;
+  return `<div class="chunk img ${c.done ? 'done' : ''}" id="ck-${i}">${head}
+      <button class="btn btn-sub btn-sm ck-btn" onclick="saveChunk(${i})">${c.done ? '✓ 저장함' : '💾 저장'}</button></div>
+      <img class="${c.isSticker ? 'stk' : ''}" src="${c.src}" alt="${esc(c.label)}"></div>`;
+}
+function markDone(i){
+  const c = state.chunks[i]; c.done = true;
+  const el = document.getElementById('ck-' + i); if (el) el.outerHTML = chunkHTML(c, i);
+  const nx = document.getElementById('ck-' + (i + 1));
+  if (nx){ nx.classList.add('next'); nx.scrollIntoView({ behavior:'smooth', block:'center' }); setTimeout(() => nx.classList.remove('next'), 1600); }
+  else celebrate('🎉', '마지막 단계까지 완료!\n전체 선택 → 가운데 정렬', true);
+}
+async function copyChunk(i){
+  const c = state.chunks[i];
+  const ok = await copyRich(bodyHTML(c.lines), c.lines.join('\n'));
+  if (ok){ toast(`${c.no}번 글 복사 완료! 붙여넣기 하세요`); markDone(i); } else toast('복사 실패 😢 다시 눌러 주세요');
+}
+async function shareFiles(files, title){
+  if (navigator.canShare && navigator.canShare({ files })){
+    try{ await navigator.share({ files, title }); return true; }catch(e){ if (e.name === 'AbortError') return false; }
+  }
+  files.forEach((f, k) => setTimeout(() => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }, k * 350));
+  return true;
+}
+async function saveChunk(i){
+  const c = state.chunks[i];
+  if (!c.file){ toast('그림 준비 중… 잠시 후 다시 눌러 주세요'); prepareChunkFiles(state.chunks); return; }
+  if (await shareFiles([c.file], c.label)){ toast(`${c.no}번 그림: '이미지 저장'을 누르세요`); markDone(i); }
+}
+async function saveAllImages(){
+  const imgs = state.chunks.filter(c => c.kind === 'img');
+  if (!imgs.length){ toast('넣을 그림이 없어요'); return; }
+  if (imgs.some(c => !c.file)){ toast('그림 준비 중… 잠시 후 다시 눌러 주세요'); prepareChunkFiles(state.chunks); return; }
+  const ok = await shareFiles(imgs.map(c => c.file), curEv().title + ' 블로그 이미지');
+  if (ok) toast(`'이미지 ${imgs.length}개 저장'을 누르면 앨범에 순서대로 들어가요`);
+}
+function nextStep(){
+  const i = state.chunks.findIndex(c => !c.done);
+  if (i < 0){ toast('모든 단계를 완료했어요 🎉'); return; }
+  state.chunks[i].kind === 'text' ? copyChunk(i) : saveChunk(i);
 }
 function reshuffle(){ const ev = curEv(); ev.seed = Math.floor(Math.random() * 1e9); saveEvents(); renderBlogTab(ev); toast('연결 문장을 바꿨어요 🔀'); }
 
@@ -1389,7 +1497,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.24-3';
+const APP_VERSION = '2026.10.24-4';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
