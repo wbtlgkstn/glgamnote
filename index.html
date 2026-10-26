@@ -1041,21 +1041,39 @@ async function ghApi(path, opt = {}){
   if (!res.ok) throw new Error(res.status);
   return res.status === 204 ? {} : res.json();
 }
-async function uploadPhoto(ph){
-  const data = await blobToDataURL(ph.blob, 1280, .85);
-  const path = `photos/${ph.eventId}/${ph.id}.jpg`;
-  const r = await ghApi(`/contents/${path}`, { method:'PUT', body: JSON.stringify({ message:`사진 업로드 ${ph.id}`, content: data.split(',')[1], branch: GH.branch }) });
-  ph.url = `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${path}`;
-  ph.ghPath = path; ph.ghSha = r.content && r.content.sha;
-  await putPhoto(ph);
-}
-/* 블로그 글에 들어가는 사진 중 아직 안 올린 것만 순서대로 올림 */
+/* 빠른 업로드: 사진 파일들을 동시에 3장씩 올린 뒤, 저장소 기록(커밋)은 딱 한 번만 남김 */
 async function uploadPostPhotos(post, onProgress){
-  const list = post.order.map(o => o.p);
-  let done = list.filter(p => p.url).length; onProgress && onProgress(done, list.length);
-  for (const ph of list){
-    if (ph.url) continue;
-    await uploadPhoto(ph); done++; onProgress && onProgress(done, list.length);
+  const list = post.order.map(o => o.p).filter(p => !p.url);
+  const total = post.order.length; let done = total - list.length;
+  onProgress && onProgress(done, total);
+  if (!list.length) return;
+  // ① 사진 파일 올리기 (3장씩 동시에)
+  const items = []; let idx = 0;
+  const worker = async () => {
+    while (idx < list.length){
+      const ph = list[idx++];
+      const data = await blobToDataURL(ph.blob, 1280, .85);
+      const b = await ghApi('/git/blobs', { method:'POST', body: JSON.stringify({ content: data.split(',')[1], encoding:'base64' }) });
+      items.push({ ph, sha: b.sha, path: `photos/${ph.eventId}/${ph.id}.jpg` });
+      done++; onProgress && onProgress(done, total);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  // ② 한 번의 커밋으로 저장소에 반영 (다른 기록과 겹치면 한 번 더 시도)
+  for (let tryNo = 0; tryNo < 3; tryNo++){
+    try{
+      const ref = await ghApi(`/git/ref/heads/${GH.branch}`);
+      const head = await ghApi(`/git/commits/${ref.object.sha}`);
+      const tree = await ghApi('/git/trees', { method:'POST', body: JSON.stringify({ base_tree: head.tree.sha, tree: items.map(it => ({ path: it.path, mode:'100644', type:'blob', sha: it.sha })) }) });
+      const commit = await ghApi('/git/commits', { method:'POST', body: JSON.stringify({ message:`사진 ${items.length}장 업로드`, tree: tree.sha, parents:[ref.object.sha] }) });
+      await ghApi(`/git/refs/heads/${GH.branch}`, { method:'PATCH', body: JSON.stringify({ sha: commit.sha }) });
+      break;
+    }catch(e){ if (tryNo === 2) throw e; }
+  }
+  for (const it of items){
+    it.ph.url = `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch}/${it.path}`;
+    it.ph.ghPath = it.path; it.ph.ghSha = it.sha;
+    await putPhoto(it.ph);
   }
 }
 async function deleteRemote(ph){
@@ -1252,8 +1270,8 @@ async function renderBlogTab(ev){
 async function buildExportFile(ev, post){
   try{
     const map = urlMap(post);   // 온라인에 올라간 사진은 주소로 (없으면 📌 자리 표시)
-    const full = {};
-    for (const o of post.order) full[o.no] = await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(o.p.blob); });
+    const full = {};   // 온라인에 올라간 사진은 주소만, 아직 안 올라간 사진만 파일 안에 넣음
+    for (const o of post.order) full[o.no] = o.p.url || await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(o.p.blob); });
     // 본문을 4.5MB 단위 조각으로 (보통은 1조각)
     const parts = [[]]; let size = 0;
     post.body.forEach(l => {
@@ -1289,7 +1307,9 @@ function say(m){var e=document.getElementById('msg');e.textContent=m;e.style.dis
 function cp(id){var el=document.getElementById(id),r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r);
 var ok=false;try{ok=document.execCommand('copy')}catch(e){}s.removeAllRanges();say(ok?'복사 완료! 네이버 블로그에 붙여넣으세요 (Ctrl+V)':'복사 실패 - 직접 드래그해서 복사해 주세요')}
 var P=${photosJSON};
-function dl(){if(!P.length){say('사진이 없어요');return}P.forEach(function(p,i){setTimeout(function(){var a=document.createElement('a');a.href=p.src;a.download=p.name;document.body.appendChild(a);a.click();a.remove()},i*400)});say('사진 '+P.length+'장 저장 시작')}
+function save1(p){var go=function(h){var a=document.createElement('a');a.href=h;a.download=p.name;document.body.appendChild(a);a.click();a.remove()};
+if(p.src.indexOf('http')===0){fetch(p.src).then(function(r){return r.blob()}).then(function(b){var u=URL.createObjectURL(b);go(u);setTimeout(function(){URL.revokeObjectURL(u)},3000)}).catch(function(){window.open(p.src)})}else go(p.src)}
+function dl(){if(!P.length){say('사진이 없어요');return}P.forEach(function(p,i){setTimeout(function(){save1(p)},i*400)});say('사진 '+P.length+'장 저장 시작')}
 <\/script></body></html>`;
     state.exportFile = new File([html], `글감노트_${ev.title.replace(/[\\/:*?"<>|]/g, '')}.html`, { type:'text/html' });
   }catch(e){ state.exportFile = null; }
@@ -1536,7 +1556,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.26-4';
+const APP_VERSION = '2026.10.26-5';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
