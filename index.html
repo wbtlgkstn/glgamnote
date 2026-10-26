@@ -185,7 +185,7 @@ button,input,textarea,select{font:inherit;color:inherit}
 .paper .sec{font-weight:900;margin-top:4px;color:var(--velvet)}
 .paper .slot{display:inline-block;color:#b4600b;font-weight:700;background:#fff1de;border-radius:8px;padding:2px 8px;margin:4px 0}
 .paper img{display:block;max-width:min(100%,420px);margin:6px auto 2px;border-radius:12px}
-.paper img.stk{width:150px;border-radius:0;margin:2px auto}
+.paper img.stk{width:110px;border-radius:0;margin:2px auto}
 .upl{font-weight:500;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tags span{background:var(--gold-soft);color:var(--gold);padding:5px 11px;border-radius:99px;font-size:.86rem;font-weight:700}
@@ -447,7 +447,7 @@ const STICKERS = {
 };
 const TYPE_STICKER = { exhibit:'다녀왔어요', musical:'다녀왔어요', play:'다녀왔어요', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기' };
 const stickerOf = line => { const m = String(line).match(/^\[스티커: (.+)\]$/); return m && STICKERS[m[1]] ? STICKERS[m[1]] : null; };
-const stickerURL = key => new URL(`stickers/${key}.png`, location.href).href;
+const stickerURL = key => new URL(`stickers/${key}.png?v=2`, location.href).href;   // ?v=2: 작게 줄인 새 스티커를 받아오도록
 
 /* ---------------------------------------------------------------
    4. 저장소: 일정(localStorage) + 사진(IndexedDB, 실패 시 메모리)
@@ -1377,7 +1377,7 @@ function bodyHTML(lines, photoMap = {}){
     const ph = l.match(/^\[사진: (\d\d) (.+)\]$/);
     if (ph && photoMap[ph[1]]) return `<p style="text-align:center"><img src="${photoMap[ph[1]]}" alt="${esc(ph[2])}" style="max-width:100%"></p>`;
     const sk = stickerOf(l);
-    if (sk) return `<p style="text-align:center"><img src="${stickerURL(sk)}" width="170" alt="${esc(l.slice(6, -1))}"></p>`;
+    if (sk) return `<p style="text-align:center"><img src="${stickerURL(sk)}" width="140" alt="${esc(l.slice(6, -1))}"></p>`;
     const slot = l.match(/^\[사진: (\d\d) (.+)\]$/);
     if (slot) return `<p style="text-align:center"><span style="color:#f08a24;font-weight:bold">📌 사진 ${slot[1]} 넣기 · ${esc(slot[2])}</span></p>`;
     if (/^\[(사진|스티커):/.test(l)) return `<p style="text-align:center"><span style="color:#f08a24;font-weight:bold">📌 ${esc(l.slice(1, -1))} 넣기</span></p>`;
@@ -1556,7 +1556,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.10.26-5';
+const APP_VERSION = '2026.10.26-6';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
