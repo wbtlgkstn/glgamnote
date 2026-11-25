@@ -498,12 +498,13 @@ const STICKERS = {
   '내돈내산':'naedon', '협찬':'sponsor', '총평':'summary', '꽃길':'flower', '추천해요':'recommend', '아쉬워요':'sorry',
   '인생작':'best', '재밌다!':'fun', '힐링중':'healing', '영화보러가요':'gomovie', '콘서트는 못참지!':'goconcert', '방탈출 GO!':'goescape',
   '고민중...':'thinking', '헉!':'wow', '눈물나...':'tears', '사랑해요':'love', '텅장주의!':'broke', '비추천':'notrec',
-  '또 갈래요!':'again', '별 다섯개!':'fivestar', '공연 후기':'show', '영화 후기':'movie', '콘서트 후기':'concert', '방탈출 후기':'escape', '한줄평':'oneline'
+  '또 갈래요!':'again', '별 다섯개!':'fivestar', '공연 후기':'show', '영화 후기':'movie', '콘서트 후기':'concert', '방탈출 후기':'escape', '한줄평':'oneline',
+  '전시 후기':'exhibit', '탈출 성공':'escape_ok', '탈출 실패':'escape_fail', '시야 체크':'view', '꿀팁':'tip', '쿠키 있음!':'cookie', '힌트 찬스':'hint', '소름':'chills'
 };
-const TYPE_STICKER = { musical:'공연 후기', play:'공연 후기', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기', exhibit:'힐링중' };
+const TYPE_STICKER = { musical:'공연 후기', play:'공연 후기', concert:'콘서트 후기', movie:'영화 후기', escape:'방탈출 후기', exhibit:'전시 후기' };
 const GO_STICKER = { movie:'영화보러가요', concert:'콘서트는 못참지!', escape:'방탈출 GO!' };
 const stickerOf = line => { const m = String(line).match(/^\[스티커: (.+)\]$/); return m && STICKERS[m[1]] ? STICKERS[m[1]] : null; };
-const stickerURL = key => new URL(`stickers/${key}.png?v=3`, location.href).href;   // ?v=2: 작게 줄인 새 스티커를 받아오도록
+const stickerURL = key => new URL(`stickers/${key}.png?v=4`, location.href).href;   // ?v=2: 작게 줄인 새 스티커를 받아오도록
 
 /* ---------------------------------------------------------------
    4. 저장소: 일정(localStorage) + 사진(IndexedDB, 실패 시 메모리)
@@ -703,7 +704,7 @@ function buildPost(ev, photos){
   };
   const allText = Object.entries(A).filter(([k, v]) => typeof v === 'string' && !['sponsor','sponsorWho','seat','cast'].includes(k)).map(([, v]) => v).join(' ');
   const count = re => (allText.match(re) || []).length;
-  const mood = [['눈물나...', count(/눈물|울컥|울었|오열|펑펑|ㅠㅠ|ㅜㅜ/g)], ['헉!', count(/소름|전율|닭살|미쳤|미친|압도|헉|충격|대박/g)],
+  const mood = [['눈물나...', count(/눈물|울컥|울었|오열|펑펑|ㅠㅠ|ㅜㅜ/g)], ['소름', count(/소름|전율|닭살|오싹/g)], ['헉!', count(/미쳤|미친|압도|헉|충격|대박/g)],
     ['재밌다!', count(/ㅋㅋㅋ|웃겼|웃김|빵\s?터|개웃|폭소|재밌|재미있|꿀잼/g)], ['사랑해요', count(/사랑|최애|행복|설렘|설렜|입덕/g)], ['힐링중', count(/힐링|편안|여유|잔잔|평온|차분/g)]]
     .filter(m => m[1] > 0).sort((a, b) => b[1] - a[1]);
   const moodSticker = (i = 0) => { const m = mood.filter(x => !usedStk.has(x[0]))[0]; if (m) sticker(m[0]); };
@@ -720,9 +721,9 @@ function buildPost(ev, photos){
     rows.forEach(([k, l]) => { blank(); push(`▶ ${l} ${stars(R[k])}`); push(...polishPara(A['why_' + k])); });
   };
   /* 꿀팁 모음 (짧으면 한 줄, 길면 문단) */
-  const tipLines = (title, list) => {
+  const tipLines = (title, list, stk) => {
     const rows = list.filter(([v]) => v); if (!rows.length) return;
-    if (brokeYes) sticker('텅장주의!');
+    sticker(stk || (brokeYes ? '텅장주의!' : '꿀팁'));
     section(title);
     rows.forEach(([v, l]) => { if (isShort(v)) push(`▶ ${l}: ${v}`); else { blank(); push(`▶ ${l}`); push(...polishPara(v)); } });
   };
@@ -772,7 +773,7 @@ function buildPost(ev, photos){
       push(`▶ 결과: ${ok ? '탈출 성공 🏆' : '탈출 실패'}${extra ? ` (${extra})` : ''}`);
     }
     if (A.recommendOK) push(`▶ 추천 여부: ${A.recommendOK}`);
-    sticker(A.recommendOK === '보통이에요' ? '고민중...' : GO_STICKER.escape);
+    sticker(A.result ? (ok ? '탈출 성공' : '탈출 실패') : A.recommendOK === '보통이에요' ? '고민중...' : GO_STICKER.escape);
     photoLines('info');
     ratingLines();
     whyLines();
@@ -786,7 +787,7 @@ function buildPost(ev, photos){
     moodSticker();
     voice(A.staff, '매장·직원', ['매장 얘기도 해볼게요', '매장이랑 직원분들은요']);
     photoLines('after');
-    tipLines('플레이 꿀팁', [[A.tip, '인원'], [A.clothes, '복장·준비물']]);
+    tipLines('플레이 꿀팁', [[A.tip, '인원'], [A.clothes, '복장·준비물']], Number(A.hints) >= 2 ? '힌트 찬스' : '꿀팁');
     recLines(); ending();
     // 제목 키워드: 평점·인원에서 1~2개
     const kw = [];
@@ -823,7 +824,7 @@ function buildPost(ev, photos){
     sticker(GO_STICKER[ev.type]);
     photoLines('info');
     if (!isMovie && (A.view || A.viewMemo || photos.some(p => p.key === 'seatview'))){
-      section('좌석 시야'); photoLines('seat');
+      section('좌석 시야'); sticker('시야 체크'); photoLines('seat');
       if (A.view) push(`▶ 시야: ${A.view}`);
       if (A.viewMemo) push(...polishPara(A.viewMemo));
     } else if (isMovie) { photoLines('seat'); }
@@ -848,7 +849,7 @@ function buildPost(ev, photos){
     moodSticker();
     photoLines('after');
     tipLines('관람 꿀팁', [[A.preTip, '보기 전에'], [A.tipInfo, '꿀팁'], [A.venueInfo, '공연장 시설'], [A.goodsInfo, '굿즈']]);
-    if (isMovie && A.cookie){ section('쿠키 영상'); push(`▶ ${A.cookie}`); }
+    if (isMovie && A.cookie){ section('쿠키 영상'); if (A.cookie.startsWith('쿠키 있음')) sticker('쿠키 있음!'); push(`▶ ${A.cookie}`); }
     if (A.rewatch){ section(isMovie ? 'N차 관람 의사' : isConcert ? '다음 공연 의사' : isExhibit ? '재방문 의사' : '재관람 의사'); if (rewatchYes) sticker('또 갈래요!'); else if (/모르겠/.test(A.rewatch)) sticker('고민중...'); push(`▶ ${A.rewatch}`); }
     recLines(); ending();
     const md = ev.date.slice(5).replace('-', '.');
@@ -1663,7 +1664,7 @@ function celebrate(emoji, text, big){
      '새 버전' 안내를 띄움 → 누르면 최신 버전으로 새로고침 (데이터는 그대로 유지)
    - 앱을 열 때 / 다시 화면에 돌아올 때 / 30분마다 확인
    --------------------------------------------------------------- */
-const APP_VERSION = '2026.11.25-1';
+const APP_VERSION = '2026.11.25-2';
 async function checkUpdate(){
   if (!/^https?:/.test(location.protocol)) return;            // 파일로 열었을 땐 건너뜀
   try{
